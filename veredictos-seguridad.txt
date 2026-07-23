@@ -1,0 +1,102 @@
+VEREDICTOS DE SEGURIDAD - GENSOKYONET
+Fecha: 2026-07-23
+
+Resumen ejecutivo
+- Diagnosticos correctos principales: SI
+- Falsos positivos detectados: SI (2)
+- Prioridad de correccion: Alta (hay 2 criticos)
+
+==================================================
+1) VEREDICTO GENERAL DE LOS PUNTOS DISCUTIDOS
+==================================================
+
+Punto A) "XSS por HTML de usuarios inyectado directo al DOM principal"
+Veredicto: PARCIAL / MAL PLANTEADO
+- No aplica tal cual para sitios de usuario, porque esos se renderizan en iframe con sandbox.
+- El escenario de robo directo de window.GensokyoApp desde html de usuario no coincide con la ruta real de renderizado actual.
+- Si existe innerHTML directo para contenido seed (estatico del repo), pero ese es otro modelo de riesgo.
+
+Punto B) "Falta llave de cierre en app.js"
+Veredicto: FALSO POSITIVO
+- El objeto esta correctamente cerrado.
+
+Punto C) "Limite de localStorage / QuotaExceededError"
+Veredicto: CORRECTO
+- Riesgo real de romper guardados al crecer datos/versiones.
+
+Punto D) "Contrasenas en texto plano"
+Veredicto: CORRECTO
+- Se guardan en claro y son exfiltrables ante XSS o acceso local al storage.
+
+==================================================
+2) HALLAZGOS CONFIRMADOS (ORDENADOS POR SEVERIDAD)
+==================================================
+
+[CRITICO] 1. XSS en busqueda por handlers inline con datos de usuario
+- Estado: CONFIRMADO
+- Impacto: ejecucion arbitraria de JS al interactuar con tabs de resultados.
+- Motivo tecnico: escapeHtml no protege contexto JavaScript embebido dentro de atributos onclick.
+
+[CRITICO] 2. Contrasenas en texto plano en storage del navegador
+- Estado: CONFIRMADO
+- Impacto: exposicion total de credenciales de cuentas locales.
+- Agravante: se combina muy mal con el XSS anterior.
+
+[ALTO] 3. Autorizacion por username (identidad debil) ademas de ownerId
+- Estado: CONFIRMADO
+- Impacto: bypass logico de ownership en ciertos escenarios (ej. nombres ambiguos/reservados).
+- Recomendacion: usar solo ownerId como fuente de verdad para permisos.
+
+[ALTO] 4. Deteccion localhost por includes + iframe local sin sandbox
+- Estado: CONFIRMADO
+- Impacto: bypass de flujo de barrera y carga de origen externo sin aislamiento esperado.
+- Recomendacion: parseo estricto de URL/hostname y sandbox consistente.
+
+[MEDIO] 5. Reverse tabnabbing en enlaces target="_blank"
+- Estado: CONFIRMADO
+- Impacto: ventana externa puede manipular opener.
+- Recomendacion: agregar rel="noopener noreferrer".
+
+[MEDIO] 6. Riesgo de QuotaExceededError sin manejo defensivo
+- Estado: CONFIRMADO
+- Impacto: fallos silenciosos o perdida de operatividad al guardar.
+- Recomendacion: try/catch, estrategia de degradacion y migracion a IndexedDB.
+
+[MEDIO] 7. Token "OAuth" predecible
+- Estado: CONFIRMADO
+- Impacto: no funciona como secreto real.
+- Recomendacion: generar tokens aleatorios criptograficamente fuertes y validarlos server-side.
+
+[MEDIO/BAJO] 8. Riesgo adicional de inyeccion persistente por avatarUrl en innerHTML
+- Estado: CONFIRMADO COMO RIESGO
+- Impacto: si avatarUrl es manipulado (tampering/XSS previo), puede reinyectarse en UI.
+- Recomendacion: setear atributos via API DOM (element.src) y validar esquema permitido.
+
+==================================================
+3) FALSOS POSITIVOS / AJUSTES DE CONTEXTO
+==================================================
+
+[FALSO POSITIVO] A. "Falta }; en app.js"
+- No corresponde en la version auditada.
+
+[AJUSTE DE CONTEXTO] B. "HTML de usuarios directo al DOM"
+- La ruta de user sites ya usa iframe sandbox.
+- El innerHTML directo observado corresponde a seed estatico, no a upload de usuario runtime.
+
+==================================================
+4) ORDEN RECOMENDADO DE PATCHES
+==================================================
+
+1. Quitar inline onclick dinamico en busqueda (migrar a addEventListener).
+2. Cortar autorizacion por username (ownerId only + nombres reservados).
+3. Endurecer localhost (validacion estricta) y sandbox en iframes correspondientes.
+4. Agregar rel noopener noreferrer en target _blank.
+5. Manejo robusto de cuota + plan de migracion de storage pesado a IndexedDB.
+
+==================================================
+5) NOTA IMPORTANTE DE ALCANCE
+==================================================
+
+- Este proyecto usa auth y autorizacion client-side para demo/prototipo.
+- En produccion, ownership, permisos y tokens deben validarse en backend.
+- El cliente nunca debe ser la fuente final de autoridad de seguridad.

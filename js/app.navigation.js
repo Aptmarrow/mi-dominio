@@ -98,6 +98,19 @@ Object.assign(GensokyoApp, {
         this.navigate(`gensokyo://${rawVal}`);
     },
 
+    isLocalhostDomain(pathStr) {
+        if (!pathStr || typeof pathStr !== 'string') return false;
+        const clean = pathStr.replace('gensokyo://', '').trim().toLowerCase();
+        try {
+            const fakeUrl = clean.startsWith('http://') || clean.startsWith('https://') ? clean : `http://${clean}`;
+            const parsed = new URL(fakeUrl);
+            const host = parsed.hostname.toLowerCase();
+            return host === 'localhost' || host === '127.0.0.1';
+        } catch (e) {
+            return false;
+        }
+    },
+
     navigate(fullUrl) {
         const activeTab = this.getActiveTab();
         if (!activeTab) return;
@@ -106,7 +119,7 @@ Object.assign(GensokyoApp, {
         if (path.startsWith('gensokyo://')) path = path.replace('gensokyo://', '');
         path = path.trim();
 
-        const isLocalhost = path.toLowerCase().includes('localhost') || path.includes('127.0.0.1');
+        const isLocalhost = this.isLocalhostDomain(path);
 
         if (!isLocalhost && path.includes('.') && (path.endsWith('.com') || path.endsWith('.org') || path.endsWith('.net') || path.includes('http') || path.includes('roblox') || path.includes('google'))) {
             this.renderHakureiBarrier(path);
@@ -229,7 +242,7 @@ Object.assign(GensokyoApp, {
         const userSite = this.userDomains[path];
         if (userSite) {
             const isPrivate = userSite.visibility === 'private';
-            const isOwner = (this.passport.userId === userSite.ownerId || this.passport.username === userSite.author || (this.passport.ownedDomains && this.passport.ownedDomains.includes(path)));
+            const isOwner = (this.passport.userId && this.passport.userId !== 'ID#0000' && (userSite.ownerId === this.passport.userId || (Array.isArray(this.passport.ownedDomains) && this.passport.ownedDomains.includes(path))));
 
             if (isPrivate && !isOwner) {
                 return {
@@ -282,7 +295,7 @@ Object.assign(GensokyoApp, {
             }
         }
 
-        const isFullWidthRoute = path.includes('localhost') || path.includes('127.0.0.1') || (path.includes('.') && !path.startsWith('search'));
+        const isFullWidthRoute = this.isLocalhostDomain(path) || (path.includes('.') && !path.startsWith('search'));
 
         if (isFullWidthRoute) {
             viewport.classList.add('full-width');
@@ -316,8 +329,8 @@ Object.assign(GensokyoApp, {
             return;
         }
 
-        // SOPORTE PARA ENTORNO DE DESARROLLO LOCAL (LOCALHOST & 127.0.0.1 BORDE A BORDE NATIVO)
-        if (path.includes('localhost') || path.includes('127.0.0.1')) {
+        // SOPORTE PARA ENTORNO DE DESARROLLO LOCAL (LOCALHOST & 127.0.0.1 BORDE A BORDE NATIVO CON SANDBOX)
+        if (this.isLocalhostDomain(path)) {
             let targetUrl = path;
             if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
                 targetUrl = `http://${targetUrl}`;
@@ -333,7 +346,7 @@ Object.assign(GensokyoApp, {
             this.checkLocalhostStatus(targetUrl).then((isOnline) => {
                 if (isOnline) {
                     viewport.innerHTML = `
-                        <iframe class="user-site-iframe" src="${this.escapeHtml(targetUrl)}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
+                        <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms allow-same-origin" src="${this.escapeHtml(targetUrl)}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
                     `;
                 } else {
                     viewport.classList.remove('full-width');
@@ -607,7 +620,7 @@ Object.assign(GensokyoApp, {
                 </p>
                 <div style="display: flex; gap: 12px; justify-content: center;">
                     <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
-                    <a href="https://${this.escapeHtml(externalDomain)}" target="_blank" class="gx-btn-go" style="background: var(--th-bg-main); border: 1px solid var(--th-border-warm); color: var(--th-text-main); text-decoration: none;">Cruzar Barrera Bajo Tu Propio Riesgo ➔</a>
+                    <a href="https://${this.escapeHtml(externalDomain)}" target="_blank" rel="noopener noreferrer" class="gx-btn-go" style="background: var(--th-bg-main); border: 1px solid var(--th-border-warm); color: var(--th-text-main); text-decoration: none;">Cruzar Barrera Bajo Tu Propio Riesgo ➔</a>
                 </div>
             </div>
         `;

@@ -115,7 +115,9 @@ Object.assign(GensokyoApp, {
         const domObj = this.userDomains[domainName];
         if (!domObj) return;
 
-        if (domObj.ownerId !== this.passport.userId && domObj.author !== this.passport.username && !this.passport.ownedDomains.includes(domainName)) {
+        const isOwner = this.passport.userId && this.passport.userId !== 'ID#0000' && (domObj.ownerId === this.passport.userId || (Array.isArray(this.passport.ownedDomains) && this.passport.ownedDomains.includes(domainName)));
+
+        if (!isOwner) {
             this.showToastNotification('Acceso Denegado 🛑: No tienes permisos para modificar este dominio.', 'error');
             return;
         }
@@ -148,10 +150,10 @@ Object.assign(GensokyoApp, {
             `;
         }
 
-        // Filtra ÚNICAMENTE los dominios pertenecientes a la cuenta actual
+        // Filtra ÚNICAMENTE los dominios pertenecientes a la cuenta actual por ownerId
         const myOwnedDomains = Object.keys(this.userDomains).filter((domainKey) => {
             const dom = this.userDomains[domainKey];
-            return dom && (dom.ownerId === this.passport.userId || dom.author === this.passport.username || (this.passport.ownedDomains && this.passport.ownedDomains.includes(domainKey)));
+            return dom && this.passport.userId && this.passport.userId !== 'ID#0000' && (dom.ownerId === this.passport.userId || (Array.isArray(this.passport.ownedDomains) && this.passport.ownedDomains.includes(domainKey)));
         });
 
         if (myOwnedDomains.length === 0) {
@@ -346,8 +348,9 @@ Object.assign(GensokyoApp, {
         const domObj = this.userDomains[domainName];
         if (!domObj) return;
 
-        // Validación Estricta de Propietario
-        if (domObj.ownerId !== this.passport.userId && domObj.author !== this.passport.username && !this.passport.ownedDomains.includes(domainName)) {
+        // Validación Estricta de Propietario (ownerId únicamente)
+        const isOwner = this.passport.userId && this.passport.userId !== 'ID#0000' && (domObj.ownerId === this.passport.userId || (Array.isArray(this.passport.ownedDomains) && this.passport.ownedDomains.includes(domainName)));
+        if (!isOwner) {
             this.showToastNotification('Acceso Denegado 🛑: No tienes permisos para modificar este dominio.', 'error');
             return;
         }
@@ -406,7 +409,8 @@ Object.assign(GensokyoApp, {
         const domObj = this.userDomains[domainName];
         if (!domObj) return;
 
-        if (domObj.ownerId !== this.passport.userId && domObj.author !== this.passport.username && !this.passport.ownedDomains.includes(domainName)) {
+        const isOwner = this.passport.userId && this.passport.userId !== 'ID#0000' && (domObj.ownerId === this.passport.userId || (Array.isArray(this.passport.ownedDomains) && this.passport.ownedDomains.includes(domainName)));
+        if (!isOwner) {
             this.showToastNotification('Acceso Denegado 🛑: No tienes permisos para modificar este dominio.', 'error');
             return;
         }
@@ -447,7 +451,8 @@ Object.assign(GensokyoApp, {
         const domObj = this.userDomains[domainName];
         if (!domObj || !domObj.versions || !domObj.versions[versionTag]) return;
 
-        if (domObj.ownerId !== this.passport.userId && domObj.author !== this.passport.username && !this.passport.ownedDomains.includes(domainName)) {
+        const isOwner = this.passport.userId && this.passport.userId !== 'ID#0000' && (domObj.ownerId === this.passport.userId || (Array.isArray(this.passport.ownedDomains) && this.passport.ownedDomains.includes(domainName)));
+        if (!isOwner) {
             this.showToastNotification('Acceso Denegado 🛑: No tienes permisos para gestionar este dominio.', 'error');
             return;
         }

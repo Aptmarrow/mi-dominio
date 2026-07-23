@@ -1,17 +1,36 @@
 Object.assign(GensokyoApp, {
+    sanitizeAvatarUrl(url) {
+        if (!url || typeof url !== 'string') return 'assets/nameless_avatar.png';
+        const clean = url.trim();
+        if (clean.startsWith('assets/') || clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('data:image/')) {
+            return clean;
+        }
+        return 'assets/nameless_avatar.png';
+    },
+
+    generateSecureOAuthToken(userId) {
+        const array = new Uint8Array(16);
+        crypto.getRandomValues(array);
+        const hex = Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+        const cleanId = (userId || '0000').replace(/[^a-zA-Z0-9]/g, '');
+        return `gx_oauth_${cleanId}_${hex}`;
+    },
+
     updatePassportUI() {
+        const safeAvatar = this.sanitizeAvatarUrl(this.passport.avatarUrl);
+
         const serpAvatarEl = document.getElementById('serp-header-avatar');
         if (serpAvatarEl) {
-            serpAvatarEl.innerHTML = `<img src="${this.passport.avatarUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" alt="${this.escapeHtml(this.passport.username)}">`;
+            serpAvatarEl.innerHTML = `<img src="${this.escapeHtml(safeAvatar)}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" alt="${this.escapeHtml(this.passport.username)}">`;
         }
 
         const sideAvatarEl = document.getElementById('sidebar-passport-avatar');
         if (sideAvatarEl) {
-            sideAvatarEl.innerHTML = `<img src="${this.passport.avatarUrl}" style="width:26px; height:26px; object-fit:cover; border-radius:50%;" alt="${this.escapeHtml(this.passport.username)}">`;
+            sideAvatarEl.innerHTML = `<img src="${this.escapeHtml(safeAvatar)}" style="width:26px; height:26px; object-fit:cover; border-radius:50%;" alt="${this.escapeHtml(this.passport.username)}">`;
         }
 
         const modalAvatarEl = document.getElementById('passport-modal-avatar');
-        if (modalAvatarEl) modalAvatarEl.src = this.passport.avatarUrl;
+        if (modalAvatarEl) modalAvatarEl.src = safeAvatar;
 
         const nameEl = document.getElementById('passport-display-name');
         if (nameEl) nameEl.innerText = this.passport.username.toUpperCase();
@@ -33,12 +52,12 @@ Object.assign(GensokyoApp, {
             }
         }
 
-        // RECARGA DINÁMICA E INMEDIATA DE LA LISTA DE DOMINIOS DEL PASAPORTE
+        // AUTORIZACIÓN ESTRICTA ÚNICAMENTE POR ownerId (IDENTIDAD FUERTE)
         const domainListEl = document.getElementById('passport-domain-list');
         if (domainListEl) {
             const userDomainKeys = Object.keys(this.userDomains).filter((domKey) => {
                 const dom = this.userDomains[domKey];
-                return dom && (dom.ownerId === this.passport.userId || dom.author === this.passport.username);
+                return dom && dom.ownerId === this.passport.userId;
             });
             const allOwned = [...(this.passport.ownedDomains || []), ...userDomainKeys];
             const uniqueOwned = [...new Set(allOwned)];
@@ -201,11 +220,11 @@ Object.assign(GensokyoApp, {
             ctx.drawImage(img, drawX, drawY, drawW, drawH);
 
             const croppedDataUrl = canvas.toDataURL('image/png');
-            this.passport.avatarUrl = croppedDataUrl;
+            this.passport.avatarUrl = this.sanitizeAvatarUrl(croppedDataUrl);
 
             const accountKey = this.passport.username.toLowerCase();
             if (this.passport.isRegistered && this.accountsDB[accountKey]) {
-                this.accountsDB[accountKey].avatarUrl = croppedDataUrl;
+                this.accountsDB[accountKey].avatarUrl = this.passport.avatarUrl;
                 this.saveAccountsDB();
             }
 
@@ -219,18 +238,15 @@ Object.assign(GensokyoApp, {
         img.src = this.tempAvatarDataUrl;
     },
 
-    /* NOTIFICACIÓN Y REFRESCADO AUTOMÁTICO DE SESIÓN EN VIVO */
     onSessionChanged() {
         this.updatePassportUI();
 
-        // Refresca la ruta activa (por ej: gensokyo://builder o gensokyo://register o la cabecera SERP)
         const activeTab = this.getActiveTab ? this.getActiveTab() : null;
         if (activeTab) {
             this.renderRoute(activeTab.url);
         }
     },
 
-    /* TOGGLE DE VISIBILIDAD DE CONTRASEÑA (OJO DE YUKARI YAKUMO) */
     togglePasswordVisibility(inputId, btnEl) {
         const input = document.getElementById(inputId);
         if (!input) return;
@@ -248,8 +264,6 @@ Object.assign(GensokyoApp, {
             if (closedSvg) closedSvg.classList.remove('hidden');
         }
     },
-
-    /* FORMULARIOS DE REGISTRO E INICIO DE SESIÓN INTERACTIVOS */
 
     showRegisterModal() {
         const modal = document.getElementById('th-register-modal');
@@ -287,7 +301,7 @@ Object.assign(GensokyoApp, {
         this.showRegisterModal();
     },
 
-    submitRegisterForm() {
+    async submitRegisterForm() {
         const userIn = document.getElementById('reg-username-input');
         const passIn = document.getElementById('reg-password-input');
         const confirmPassIn = document.getElementById('reg-confirm-password-input');
@@ -334,16 +348,20 @@ Object.assign(GensokyoApp, {
             this.passport.userId = `ID#${Math.floor(1000 + Math.random() * 9000)}`;
         }
 
+        // HASHEO CRIPTOGRÁFICO DE CONTRASEÑA (SHA-256) Y TOKEN OAUTH SEGURO
+        const passwordHash = await this.hashPassword(password);
+        const secureToken = this.generateSecureOAuthToken(this.passport.userId);
+
         this.passport.username = cleanName;
         this.passport.isRegistered = true;
         this.passport.ownedDomains = [];
-        this.passport.oauthToken = `gx_live_token_${this.passport.userId.replace('ID#', '')}_${key}_key`;
+        this.passport.oauthToken = secureToken;
 
         this.accountsDB[key] = {
             username: cleanName,
             userId: this.passport.userId,
-            password: password,
-            avatarUrl: this.passport.avatarUrl,
+            passwordHash: passwordHash,
+            avatarUrl: this.sanitizeAvatarUrl(this.passport.avatarUrl),
             ownedDomains: this.passport.ownedDomains,
             createdAt: new Date().toISOString()
         };
@@ -383,7 +401,7 @@ Object.assign(GensokyoApp, {
         this.showLoginModal();
     },
 
-    submitLoginForm() {
+    async submitLoginForm() {
         const userIn = document.getElementById('login-username-input');
         const passIn = document.getElementById('login-password-input');
         const errBanner = document.getElementById('login-error-banner');
@@ -400,7 +418,13 @@ Object.assign(GensokyoApp, {
             return;
         }
 
-        if (this.accountsDB[key].password !== password) {
+        const passwordHash = await this.hashPassword(password);
+        const acc = this.accountsDB[key];
+
+        // Verificación defensiva compatible con cuentas legacy o hasheadas
+        const expectedHash = acc.passwordHash || (acc.password ? await this.hashPassword(acc.password) : '');
+
+        if (expectedHash !== passwordHash) {
             if (errBanner) {
                 errBanner.innerText = 'Contraseña incorrecta. Inténtalo nuevamente.';
                 errBanner.classList.add('visible');
@@ -408,15 +432,22 @@ Object.assign(GensokyoApp, {
             return;
         }
 
-        const acc = this.accountsDB[key];
+        // Migración a hash seguro si venía de texto plano
+        if (!acc.passwordHash) {
+            acc.passwordHash = passwordHash;
+            delete acc.password;
+            this.saveAccountsDB();
+        }
+
+        const secureToken = this.generateSecureOAuthToken(acc.userId);
         this.passport = {
             isLoggedIn: true,
             isRegistered: true,
             userId: acc.userId,
             username: acc.username,
-            avatarUrl: acc.avatarUrl || 'assets/nameless_avatar.png',
+            avatarUrl: this.sanitizeAvatarUrl(acc.avatarUrl),
             ownedDomains: acc.ownedDomains || [],
-            oauthToken: `gx_live_token_${acc.userId.replace('ID#', '')}_${key}_key`
+            oauthToken: secureToken
         };
 
         this.savePassportData();
@@ -426,15 +457,15 @@ Object.assign(GensokyoApp, {
     },
 
     handleLogout() {
+        const anonymousToken = this.generateSecureOAuthToken('ID#0000');
         this.passport = {
             isLoggedIn: true,
             isRegistered: false,
             userId: 'ID#0000',
             username: 'Nameless Youkai',
-            email: 'nameless@gensokyo.net',
             avatarUrl: 'assets/nameless_avatar.png',
             ownedDomains: [],
-            oauthToken: 'gx_live_token_0000_nameless_youkai_key'
+            oauthToken: anonymousToken
         };
         this.savePassportData();
         this.onSessionChanged();
@@ -455,7 +486,7 @@ Object.assign(GensokyoApp, {
 
         const toast = document.createElement('div');
         toast.className = `th-toast ${type}`;
-        
+
         let iconHtml = '⛩️';
         if (type === 'success') iconHtml = '✓';
         if (type === 'error') iconHtml = '✕';
