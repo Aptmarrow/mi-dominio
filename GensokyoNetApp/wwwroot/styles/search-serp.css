@@ -1,0 +1,343 @@
+/* ==========================================================================
+   GensokyoNet - Exact Google SERP Layout & Header Styles
+   ========================================================================== */
+
+/* Top Google SERP Header */
+.google-serp-container {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.google-serp-top-header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    width: 100%;
+    padding-bottom: 16px;
+}
+
+.serp-brand-group {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+}
+
+.serp-google-logo {
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--th-crimson);
+    letter-spacing: 0.5px;
+}
+
+.serp-search-bar-wrap {
+    flex: 1;
+    max-width: 680px;
+    display: flex;
+    align-items: center;
+    background: var(--th-bg-card);
+    border: 1.5px solid var(--th-border-warm);
+    border-radius: 24px;
+    padding: 6px 16px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+    transition: all 0.2s ease;
+}
+
+.serp-search-bar-wrap:focus-within {
+    border-color: var(--th-crimson);
+    box-shadow: 0 2px 12px rgba(166, 27, 50, 0.15);
+}
+
+.serp-search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 0.95rem;
+    font-family: var(--font-body);
+    color: var(--th-text-main);
+}
+
+.serp-clear-btn {
+    color: var(--th-text-sub);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 8px;
+    opacity: 0.7;
+}
+
+.serp-clear-btn:hover {
+    opacity: 1;
+    color: var(--th-crimson);
+}
+
+.serp-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--th-border-warm);
+    margin: 0 8px;
+}
+
+.serp-search-icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--th-crimson);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 4px 6px;
+    display: flex;
+    align-items: center;
+}
+
+.serp-user-profile-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-left: auto;
+}
+
+.serp-icon-btn {
+    font-size: 1.1rem;
+    color: var(--th-text-sub);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+}
+
+.serp-icon-btn:hover {
+    background: var(--th-crimson-light);
+    color: var(--th-crimson);
+}
+
+.serp-avatar-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--th-crimson);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    border: 1.5px solid var(--th-border-warm);
+    cursor: pointer;
+}
+
+/* Google SERP Subheader Tab Navigation Bar */
+.google-serp-tab-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    border-bottom: 1.5px solid var(--th-border-warm);
+    width: 100%;
+    padding: 0 4px;
+}
+
+.google-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--th-text-sub);
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    font-weight: 500;
+    padding: 10px 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.google-tab:hover {
+    color: var(--th-crimson);
+}
+
+.google-tab.active {
+    color: var(--th-crimson);
+    font-weight: 700;
+    border-bottom-color: var(--th-crimson);
+}
+
+.serp-tools-space {
+    flex: 1;
+}
+
+.google-tab.tools-btn {
+    color: var(--th-text-sub);
+    font-size: 0.85rem;
+}
+
+/* Results Content */
+.search-stats-banner {
+    font-size: 0.82rem;
+    color: var(--th-text-sub);
+    margin: 14px 0 18px 0;
+}
+
+/* Web Search Results Cards */
+.search-results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+.search-web-card {
+    background: var(--th-bg-card);
+    border: 1.5px solid var(--th-border-warm);
+    border-radius: 10px;
+    padding: 18px 22px;
+    transition: all 0.2s ease;
+}
+
+.search-web-card:hover {
+    border-color: var(--th-crimson);
+    box-shadow: 0 4px 15px rgba(166, 27, 50, 0.1);
+}
+
+.search-web-domain {
+    font-family: var(--font-heading);
+    font-size: 0.82rem;
+    color: var(--th-crimson);
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.search-web-title {
+    font-family: var(--font-heading);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--th-text-title);
+    cursor: pointer;
+    text-decoration: none;
+    margin-bottom: 6px;
+    display: inline-block;
+}
+
+.search-web-title:hover {
+    text-decoration: underline;
+}
+
+.search-web-snippet {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--th-text-sub);
+}
+
+/* Image Search Results Grid */
+.search-images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+    width: 100%;
+}
+
+.search-image-card {
+    background: var(--th-bg-card);
+    border: 1.5px solid var(--th-border-warm);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.search-image-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--th-crimson);
+    box-shadow: 0 6px 18px rgba(166, 27, 50, 0.15);
+}
+
+.search-image-thumb {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+}
+
+.search-image-meta {
+    padding: 10px 14px;
+}
+
+.search-image-title {
+    font-family: var(--font-heading);
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--th-crimson);
+    margin-bottom: 2px;
+}
+
+.search-image-sub {
+    font-size: 0.76rem;
+    color: var(--th-text-sub);
+}
+
+/* Video Results Grid */
+.search-videos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+}
+
+.search-video-card {
+    background: var(--th-bg-card);
+    border: 1.5px solid var(--th-border-warm);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.search-video-preview {
+    position: relative;
+    width: 220px;
+    height: 130px;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 1px solid var(--th-border-warm);
+}
+
+.search-video-duration {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    background: rgba(0,0,0,0.8);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.search-video-info {
+    flex: 1;
+}
+
+.search-video-title {
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--th-crimson);
+    margin-bottom: 6px;
+}
+
+.search-video-author {
+    font-size: 0.82rem;
+    color: var(--th-gold-accent);
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.search-video-desc {
+    font-size: 0.88rem;
+    color: var(--th-text-sub);
+    line-height: 1.4;
+    margin-bottom: 12px;
+}
+
+/* ==========================================================================

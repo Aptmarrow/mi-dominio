@@ -1,0 +1,12 @@
+# Node / NPM
+node_modules/
+npm-debug.log*
+
+# System & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local build / Temp
+*.tmp

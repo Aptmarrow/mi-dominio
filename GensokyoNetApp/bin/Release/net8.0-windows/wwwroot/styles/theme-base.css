@@ -1,0 +1,344 @@
+   GensokyoNet - Touhou Themes System (TH06 Scarlet Mist & TH07 Hakugyokurou)
+/* ==========================================================================
+
+}
+    margin-bottom: 12px;
+    line-height: 1.4;
+    color: var(--th-text-sub);
+    font-size: 0.88rem;
+.search-video-desc {
+
+}
+    margin-bottom: 8px;
+    font-weight: 700;
+    color: var(--th-gold-accent);
+    font-size: 0.82rem;
+.search-video-author {
+
+}
+    margin-bottom: 6px;
+    color: var(--th-crimson);
+    font-weight: 700;
+    font-size: 1.15rem;
+    font-family: var(--font-heading);
+.search-video-title {
+
+}
+    flex: 1;
+.search-video-info {
+
+}
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-weight: 700;
+    font-size: 0.72rem;
+    color: #ffffff;
+    background: rgba(0,0,0,0.8);
+    right: 6px;
+    bottom: 6px;
+    position: absolute;
+.search-video-duration {
+
+}
+    border: 1px solid var(--th-border-warm);
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    height: 130px;
+    width: 220px;
+    position: relative;
+.search-video-preview {
+
+}
+    align-items: flex-start;
+    gap: 16px;
+    display: flex;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1.5px solid var(--th-border-warm);
+    background: var(--th-bg-card);
+.search-video-card {
+
+}
+    width: 100%;
+    gap: 18px;
+    flex-direction: column;
+    display: flex;
+.search-videos-list {
+/* Video Results Grid */
+
+}
+    color: var(--th-text-sub);
+    font-size: 0.76rem;
+.search-image-sub {
+
+}
+    margin-bottom: 2px;
+    color: var(--th-crimson);
+    font-weight: 700;
+    font-size: 0.92rem;
+    font-family: var(--font-heading);
+.search-image-title {
+
+}
+    padding: 10px 14px;
+.search-image-meta {
+
+}
+    object-fit: cover;
+    height: 140px;
+    width: 100%;
+.search-image-thumb {
+
+}
+    box-shadow: 0 6px 18px rgba(166, 27, 50, 0.15);
+    border-color: var(--th-crimson);
+    transform: translateY(-4px);
+.search-image-card:hover {
+
+}
+    transition: all 0.2s ease;
+    cursor: pointer;
+    overflow: hidden;
+    border-radius: 10px;
+    border: 1.5px solid var(--th-border-warm);
+    background: var(--th-bg-card);
+.search-image-card {
+
+}
+    width: 100%;
+    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    display: grid;
+.search-images-grid {
+/* Image Search Results Grid */
+
+}
+    color: var(--th-text-sub);
+    line-height: 1.5;
+    font-size: 0.9rem;
+.search-web-snippet {
+
+}
+    text-decoration: underline;
+.search-web-title:hover {
+
+}
+    display: inline-block;
+    margin-bottom: 6px;
+    text-decoration: none;
+    cursor: pointer;
+    color: var(--th-text-title);
+    font-weight: 700;
+    font-size: 1.2rem;
+    font-family: var(--font-heading);
+.search-web-title {
+
+}
+    gap: 6px;
+    align-items: center;
+    display: flex;
+    margin-bottom: 4px;
+    font-weight: 700;
+    color: var(--th-crimson);
+    font-size: 0.82rem;
+    font-family: var(--font-heading);
+.search-web-domain {
+
+}
+    box-shadow: 0 4px 15px rgba(166, 27, 50, 0.1);
+    border-color: var(--th-crimson);
+.search-web-card:hover {
+
+}
+    transition: all 0.2s ease;
+    padding: 18px 22px;
+    border-radius: 10px;
+    border: 1.5px solid var(--th-border-warm);
+    background: var(--th-bg-card);
+.search-web-card {
+
+}
+    width: 100%;
+    gap: 16px;
+    flex-direction: column;
+    display: flex;
+.search-results-list {
+/* Web Search Results Cards */
+
+}
+    margin: 14px 0 18px 0;
+    color: var(--th-text-sub);
+    font-size: 0.82rem;
+.search-stats-banner {
+/* Results Content */
+
+}
+    font-size: 0.85rem;
+    color: var(--th-text-sub);
+.google-tab.tools-btn {
+
+}
+    flex: 1;
+.serp-tools-space {
+
+}
+    border-bottom-color: var(--th-crimson);
+    font-weight: 700;
+    color: var(--th-crimson);
+.google-tab.active {
+
+}
+    color: var(--th-crimson);
+.google-tab:hover {
+
+}
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    padding: 10px 4px;
+    font-weight: 500;
+    font-size: 0.92rem;
+    font-family: var(--font-body);
+    color: var(--th-text-sub);
+    border-bottom: 3px solid transparent;
+    border: none;
+    background: transparent;
+.google-tab {
+
+}
+    padding: 0 4px;
+    width: 100%;
+    border-bottom: 1.5px solid var(--th-border-warm);
+    gap: 20px;
+    align-items: center;
+    display: flex;
+.google-serp-tab-bar {
+/* Google SERP Subheader Tab Navigation Bar */
+
+}
+    cursor: pointer;
+    border: 1.5px solid var(--th-border-warm);
+    font-size: 1rem;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    color: #ffffff;
+    background: var(--th-crimson);
+    border-radius: 50%;
+    height: 32px;
+    width: 32px;
+.serp-avatar-circle {
+
+}
+    color: var(--th-crimson);
+    background: var(--th-crimson-light);
+.serp-icon-btn:hover {
+
+}
+    border-radius: 50%;
+    padding: 6px;
+    cursor: pointer;
+    color: var(--th-text-sub);
+    font-size: 1.1rem;
+.serp-icon-btn {
+
+}
+    margin-left: auto;
+    gap: 16px;
+    align-items: center;
+    display: flex;
+.serp-user-profile-group {
+
+}
+    align-items: center;
+    display: flex;
+    padding: 4px 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    color: var(--th-crimson);
+    border: none;
+    background: transparent;
+.serp-search-icon-btn {
+
+}
+    margin: 0 8px;
+    background: var(--th-border-warm);
+    height: 20px;
+    width: 1px;
+.serp-divider {
+
+}
+    color: var(--th-crimson);
+    opacity: 1;
+.serp-clear-btn:hover {
+
+}
+    opacity: 0.7;
+    padding: 0 8px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    color: var(--th-text-sub);
+.serp-clear-btn {
+
+}
+    color: var(--th-text-main);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    outline: none;
+    border: none;
+    background: transparent;
+    flex: 1;
+.serp-search-input {
+
+}
+    box-shadow: 0 2px 12px rgba(166, 27, 50, 0.15);
+    border-color: var(--th-crimson);
+.serp-search-bar-wrap:focus-within {
+
+}
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+    padding: 6px 16px;
+    border-radius: 24px;
+    border: 1.5px solid var(--th-border-warm);
+    background: var(--th-bg-card);
+    align-items: center;
+    display: flex;
+    max-width: 680px;
+    flex: 1;
+.serp-search-bar-wrap {
+
+}
+    letter-spacing: 0.5px;
+    color: var(--th-crimson);
+    font-weight: 700;
+    font-size: 1.4rem;
+    font-family: var(--font-heading);
+.serp-google-logo {
+
+}
+    user-select: none;
+    gap: 6px;
+    align-items: center;
+    display: flex;
+    cursor: pointer;
+.serp-brand-group {
+
+}
+    padding-bottom: 16px;
+    width: 100%;
+    gap: 24px;
+    align-items: center;
+    display: flex;
+.google-serp-top-header {
+
+}
+    margin-bottom: 20px;
+    width: 100%;
+.google-serp-container {
+/* Top Google SERP Header */
+
+   ========================================================================== */
+   GensokyoNet - Exact Google SERP Layout & Header Styles
+/* ==========================================================================

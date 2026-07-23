@@ -1,0 +1,7 @@
+/* Entry point stylesheet: imports modular sections in cascade order */
+@import url('styles/search-serp.css');
+@import url('styles/theme-base.css');
+@import url('styles/layout-shell.css');
+@import url('styles/home-cards.css');
+@import url('styles/status-modal.css');
+@import url('styles/passport.css');
