@@ -16,6 +16,32 @@ Object.assign(GensokyoApp, {
         return `gx_oauth_${cleanId}_${hex}`;
     },
 
+    generateUniqueUserId() {
+        const existingIds = new Set(
+            Object.values(this.accountsDB || {})
+                .map((acc) => acc && acc.userId)
+                .filter(Boolean)
+        );
+
+        // Reintenta varias veces con alta entropía para evitar colisiones.
+        for (let i = 0; i < 10; i++) {
+            let suffix;
+            if (crypto.randomUUID) {
+                suffix = crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
+            } else {
+                const bytes = new Uint8Array(4);
+                crypto.getRandomValues(bytes);
+                suffix = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+            }
+
+            const candidate = `ID#${suffix}`;
+            if (!existingIds.has(candidate)) return candidate;
+        }
+
+        // Fallback extremo con timestamp para garantizar avance.
+        return `ID#${Date.now().toString(36).toUpperCase()}`;
+    },
+
     updatePassportUI() {
         const safeAvatar = this.sanitizeAvatarUrl(this.passport.avatarUrl);
 
@@ -345,7 +371,7 @@ Object.assign(GensokyoApp, {
         }
 
         if (this.passport.userId === 'ID#0000') {
-            this.passport.userId = `ID#${Math.floor(1000 + Math.random() * 9000)}`;
+            this.passport.userId = this.generateUniqueUserId();
         }
 
         // HASHEO CRIPTOGRÁFICO DE CONTRASEÑA (SHA-256) Y TOKEN OAUTH SEGURO

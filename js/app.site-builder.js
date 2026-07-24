@@ -247,7 +247,7 @@ Object.assign(GensokyoApp, {
                             <input type="file" id="file-upload-${this.escapeHtml(domKey)}" webkitdirectory directory multiple style="display:none;" onchange="GensokyoApp.handleProjectFolderUpload(event, '${this.escapeHtml(domKey)}')">
                             <div class="project-drop-icon">📁</div>
                             <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">Subir Proyecto desde VS Code / PC</h3>
-                            <p style="font-size:0.85rem; color:var(--th-text-sub);">Haz clic para elegir la carpeta de tu proyecto o arrastra tu archivo <strong>index.html</strong> aquí.</p>
+                            <p style="font-size:0.85rem; color:var(--th-text-sub);">Versión actual: solo se admite <strong>1 archivo HTML autocontenido</strong> (sin assets externos). Si subes carpeta con CSS/JS/imagenes, se rechazará.</p>
                         </div>
 
                         <!-- BARRA DE CUOTA DE ALMACENAMIENTO (SOFT-LIMIT 25 MB) -->
@@ -355,20 +355,25 @@ Object.assign(GensokyoApp, {
             return;
         }
 
-        // Calcula el tamaño total de los archivos del proyecto
-        let totalSizeBytes = files.reduce((acc, f) => acc + f.size, 0);
-        const maxSizeBytes = 25 * 1024 * 1024; // 25 MB limit
-
-        if (totalSizeBytes > maxSizeBytes) {
-            this.showToastNotification(`Error: El proyecto mide ${(totalSizeBytes / (1024 * 1024)).toFixed(2)} MB y supera el límite de 25 MB. Enlaza archivos pesados desde GitHub u otra plataforma.`, 'error');
-            return;
-        }
-
         // Busca el archivo principal index.html o el primer .html
         let mainHtmlFile = files.find(f => f.name.toLowerCase() === 'index.html') || files.find(f => f.name.toLowerCase().endsWith('.html'));
 
         if (!mainHtmlFile) {
             this.showToastNotification('No se encontró ningún archivo .html en la carpeta seleccionada.', 'error');
+            return;
+        }
+
+        // Evita descartar assets en silencio: por ahora solo se admite un HTML autocontenido.
+        if (files.length > 1) {
+            this.showToastNotification('Por ahora solo se admite 1 archivo HTML autocontenido. Elimina assets externos o embébelos en el HTML.', 'error');
+            return;
+        }
+
+        const totalSizeBytes = mainHtmlFile.size || 0;
+        const maxSizeBytes = 25 * 1024 * 1024; // 25 MB limit
+
+        if (totalSizeBytes > maxSizeBytes) {
+            this.showToastNotification(`Error: El HTML pesa ${(totalSizeBytes / (1024 * 1024)).toFixed(2)} MB y supera el límite de 25 MB.`, 'error');
             return;
         }
 

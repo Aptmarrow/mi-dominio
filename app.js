@@ -11,6 +11,9 @@ const GensokyoApp = {
     userDomains: {},
     accountsDB: {},
     currentTheme: 'scarlet',
+    securityConfig: {
+        localhostSandboxMode: 'secure'
+    },
     passport: {
         isLoggedIn: true,
         isRegistered: false,
@@ -27,6 +30,7 @@ const GensokyoApp = {
         this.loadAccountsDB();
         this.loadPassportData();
         this.loadUserDomains();
+        this.loadSecurityConfig();
 
         const urlInput = document.getElementById('th-url-input');
         if (urlInput) {
@@ -94,6 +98,56 @@ const GensokyoApp = {
         } catch (e) {
             console.error('Error al cargar dominios', e);
         }
+    },
+
+    loadSecurityConfig() {
+        const stored = localStorage.getItem('gensokyo_security_config');
+        if (!stored) return;
+        try {
+            const parsed = JSON.parse(stored);
+            if (parsed && (parsed.localhostSandboxMode === 'secure' || parsed.localhostSandboxMode === 'dev')) {
+                this.securityConfig.localhostSandboxMode = parsed.localhostSandboxMode;
+            }
+        } catch (e) {
+            console.error('Error al cargar configuración de seguridad', e);
+        }
+    },
+
+    saveSecurityConfig() {
+        try {
+            localStorage.setItem('gensokyo_security_config', JSON.stringify(this.securityConfig));
+        } catch (e) {
+            console.error('No se pudo guardar configuración de seguridad', e);
+        }
+    },
+
+    setLocalhostSandboxMode(mode) {
+        const nextMode = (mode || '').toLowerCase();
+        if (nextMode !== 'secure' && nextMode !== 'dev') {
+            if (this.showToastNotification) {
+                this.showToastNotification('Modo inválido. Usa secure o dev.', 'error');
+            }
+            return;
+        }
+
+        this.securityConfig.localhostSandboxMode = nextMode;
+        this.saveSecurityConfig();
+
+        if (this.showToastNotification) {
+            const label = nextMode === 'secure' ? 'Seguro' : 'Desarrollo';
+            this.showToastNotification(`Sandbox localhost: ${label}`, 'success');
+        }
+
+        const activeTab = this.getActiveTab ? this.getActiveTab() : null;
+        if (activeTab && this.isLocalhostDomain && this.isLocalhostDomain(activeTab.url)) {
+            this.renderRoute(activeTab.url);
+        }
+    },
+
+    getLocalhostSandboxAttr() {
+        return this.securityConfig.localhostSandboxMode === 'dev'
+            ? 'allow-scripts allow-forms allow-same-origin'
+            : 'allow-scripts allow-forms';
     },
 
     saveUserDomains() {

@@ -210,13 +210,14 @@ Object.assign(GensokyoApp, {
         if (cleanStr === '') return true;
 
         try {
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = cleanStr;
+            // Parsea en documento inerte para evitar ejecutar/renderizar contenido no confiable.
+            const parsed = new DOMParser().parseFromString(cleanStr, 'text/html');
+            const root = parsed.body || parsed;
 
-            tempDiv.querySelectorAll('script, style, meta, link').forEach(el => el.remove());
+            root.querySelectorAll('script, style, meta, link, template, noscript').forEach((el) => el.remove());
 
-            const hasVisualMedia = tempDiv.querySelector('img, video, canvas, svg, iframe, audio, input, button, select, a, p, h1, h2, h3, h4, h5, h6, table, form, article, section, header, footer');
-            const visibleTextLength = tempDiv.textContent ? tempDiv.textContent.trim().length : 0;
+            const hasVisualMedia = root.querySelector('img, video, canvas, svg, iframe, audio, input, button, select, a, p, h1, h2, h3, h4, h5, h6, table, form, article, section, header, footer');
+            const visibleTextLength = root.textContent ? root.textContent.trim().length : 0;
 
             return !hasVisualMedia && visibleTextLength < 5;
         } catch (err) {
@@ -345,8 +346,9 @@ Object.assign(GensokyoApp, {
 
             this.checkLocalhostStatus(targetUrl).then((isOnline) => {
                 if (isOnline) {
+                    const localhostSandbox = this.getLocalhostSandboxAttr ? this.getLocalhostSandboxAttr() : 'allow-scripts allow-forms';
                     viewport.innerHTML = `
-                        <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms allow-same-origin" src="${this.escapeHtml(targetUrl)}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
+                        <iframe class="user-site-iframe" sandbox="${localhostSandbox}" src="${this.escapeHtml(targetUrl)}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
                     `;
                 } else {
                     viewport.classList.remove('full-width');
