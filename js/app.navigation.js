@@ -84,14 +84,18 @@ Object.assign(GensokyoApp, {
         if (!input) return;
 
         let rawVal = input.value.trim();
-        if (rawVal.startsWith('gensokyo://')) {
-            rawVal = rawVal.replace('gensokyo://', '');
+        rawVal = rawVal.replace(/^(gensokyo|outside):\/\//i, '').replace(/^https?:\/\//i, '').trim();
+
+        const isLocalhost = this.isLocalhostDomain(rawVal);
+        const isExternal = !isLocalhost && this.isExternalDomain(rawVal);
+
+        if (!isLocalhost && !isExternal && !rawVal.includes('.') && !['search', 'register', 'builder', 'home', ''].includes(rawVal)) {
+            this.navigate(`gensokyo://search?q=${encodeURIComponent(rawVal)}`);
+            return;
         }
 
-        const isLocalhost = rawVal.toLowerCase().includes('localhost') || rawVal.includes('127.0.0.1');
-
-        if (!isLocalhost && !rawVal.includes('.') && !rawVal.startsWith('search') && !rawVal.startsWith('register') && !rawVal.startsWith('builder') && !rawVal.startsWith('home')) {
-            this.navigate(`gensokyo://search?q=${encodeURIComponent(rawVal)}`);
+        if (isExternal) {
+            this.navigate(`outside://${rawVal}`);
             return;
         }
 
@@ -100,7 +104,7 @@ Object.assign(GensokyoApp, {
 
     isLocalhostDomain(pathStr) {
         if (!pathStr || typeof pathStr !== 'string') return false;
-        const clean = pathStr.replace('gensokyo://', '').trim().toLowerCase();
+        const clean = pathStr.replace(/^(gensokyo|outside):\/\//i, '').trim().toLowerCase();
         try {
             const fakeUrl = clean.startsWith('http://') || clean.startsWith('https://') ? clean : `http://${clean}`;
             const parsed = new URL(fakeUrl);
@@ -194,7 +198,18 @@ Object.assign(GensokyoApp, {
             if (wrapperEl) wrapperEl.classList.add('full-bleed');
 
             viewport.innerHTML = `
-                <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms allow-same-origin allow-popups" src="${this.escapeHtml(targetUrl)}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
+                <div style="width: 100%; height: 100%; position: relative; background: #ffffff;">
+                    <div style="background: #1c0308; color: #ffffff; padding: 6px 16px; font-size: 0.82rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--th-crimson);">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #ff9800; font-weight: bold;">OUTSIDE://</span>
+                            <span style="color: #ffffff; font-family: monospace;">${this.escapeHtml(targetUrl)}</span>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="gx-btn-go" style="padding: 3px 10px; font-size: 0.75rem; background: var(--th-crimson);" onclick="window.open('${this.escapeHtml(targetUrl)}', '_blank', 'noopener,noreferrer')">Abrir en Pestaña Directa ➔</button>
+                        </div>
+                    </div>
+                    <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals" src="${this.escapeHtml(targetUrl)}" style="width:100%; height:calc(100% - 32px); border:none; background:#ffffff; display:block;"></iframe>
+                </div>
             `;
         }
 
@@ -204,32 +219,26 @@ Object.assign(GensokyoApp, {
     },
 
     updateUrlInput(url) {
+        const prefixEl = document.getElementById('th-url-prefix');
         const input = document.getElementById('th-url-input');
         if (!input) return;
 
         let clean = (url || '').trim();
-        if (clean.startsWith('gensokyo://')) {
-            clean = clean.replace('gensokyo://', '');
-            if (this.isExternalDomain(clean)) {
-                input.value = `OUTSIDE:// ${clean.replace(/^(https?:\/\/|outside:\/\/)/i, '')}`;
-                return;
+        clean = clean.replace(/^(gensokyo|outside):\/\//i, '').replace(/^https?:\/\//i, '').trim();
+
+        const isExternal = this.isExternalDomain(clean);
+
+        if (prefixEl) {
+            if (isExternal) {
+                prefixEl.innerText = 'OUTSIDE://';
+                prefixEl.style.color = '#e65100';
+            } else {
+                prefixEl.innerText = 'GENSOKYO://';
+                prefixEl.style.color = 'var(--th-crimson)';
             }
-            input.value = `GENSOKYO:// ${clean}`;
-            return;
         }
 
-        if (clean.startsWith('outside://')) {
-            clean = clean.replace('outside://', '');
-            input.value = `OUTSIDE:// ${clean}`;
-            return;
-        }
-
-        if (this.isExternalDomain(clean)) {
-            input.value = `OUTSIDE:// ${clean.replace(/^https?:\/\//i, '')}`;
-            return;
-        }
-
-        input.value = `GENSOKYO:// ${clean}`;
+        input.value = clean;
     },
 
     updateSidebarActiveState(url) {
