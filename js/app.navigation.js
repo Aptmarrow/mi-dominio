@@ -505,110 +505,21 @@ Object.assign(GensokyoApp, {
 
             if (routeInfo.isUserSite) {
                 if (routeInfo.isEmptySite) {
-                    viewport.classList.add('full-width');
-                    if (wrapperEl) wrapperEl.classList.add('full-bleed');
+                    viewport.classList.remove('full-width');
+                    if (wrapperEl) wrapperEl.classList.remove('full-bleed');
 
                     viewport.innerHTML = `
-                        <div style="width: 100%; min-height: calc(100vh - 110px); margin: 0; background: var(--th-bg-main); display: flex; flex-direction: column; align-items: center;">
-                            <!-- BANNER PANORÁMICO DE ANCHO COMPLETO: YUKARI YAKUMO CHIBI & SEÑALES DE OBRAS -->
-                            <div style="width: 100%; height: 240px; background: linear-gradient(180deg, #19062b 0%, #3b0f5b 60%, #120220 100%); border-bottom: 3px solid var(--th-gold); position: relative; overflow: hidden;">
-                                <svg viewBox="0 0 800 240" style="width: 100%; height: 100%; display: block;" preserveAspectRatio="xMidYMid slice">
-                                    <defs>
-                                        <linearGradient id="yukariSky" x1="0%" y1="0%" x2="0%" y2="100%">
-                                            <stop offset="0%" stop-color="#19062b" />
-                                            <stop offset="60%" stop-color="#3b0f5b" />
-                                            <stop offset="100%" stop-color="#120220" />
-                                        </linearGradient>
-                                    </defs>
-                                    <rect width="800" height="240" fill="url(#yukariSky)" />
+                        <div class="th-card" style="max-width: 600px; margin: 40px auto; text-align: center; padding: 40px 24px; border: 2px solid var(--th-gold); background: linear-gradient(135deg, var(--th-bg-card) 0%, var(--th-bg-main) 100%); border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <img src="assets/yukari_construction.png" alt="Chibi Yukari Yakumo - Lugar en Construcción" style="width: 100%; max-width: 320px; height: auto; display: block; margin: 0 auto 20px auto; filter: drop-shadow(0 8px 16px rgba(186, 104, 200, 0.25));">
 
-                                    <!-- Brecha Espacial de los Límites (Sukima Gap) con Ojos Rojos -->
-                                    <ellipse cx="400" cy="216" rx="110" ry="18" fill="#0d0014" stroke="#d80068" stroke-width="2.5" />
-                                    <!-- Ojos Rojos de Yukari -->
-                                    <ellipse cx="345" cy="216" rx="8" ry="4.5" fill="#e60000" />
-                                    <ellipse cx="345" cy="216" rx="3.5" ry="3.5" fill="#000" />
-
-                                    <ellipse cx="375" cy="218" rx="9.5" ry="5.5" fill="#e60000" />
-                                    <ellipse cx="375" cy="218" rx="4" ry="4" fill="#000" />
-
-                                    <ellipse cx="400" cy="215" rx="11" ry="6" fill="#e60000" />
-                                    <ellipse cx="400" cy="215" rx="4.5" ry="4.5" fill="#000" />
-
-                                    <ellipse cx="425" cy="218" rx="9.5" ry="5.5" fill="#e60000" />
-                                    <ellipse cx="425" cy="218" rx="4" ry="4" fill="#000" />
-
-                                    <ellipse cx="455" cy="216" rx="8" ry="4.5" fill="#e60000" />
-                                    <ellipse cx="455" cy="216" rx="3.5" ry="3.5" fill="#000" />
-
-                                    <!-- Cartel Triangular de Advertencia / Obras ⚠️ (Derecha) -->
-                                    <line x1="485" y1="90" x2="485" y2="210" stroke="#cccccc" stroke-width="4" />
-                                    <polygon points="485,65 528,140 442,140" fill="#ffd700" stroke="#333333" stroke-width="3" />
-                                    <polygon points="485,74 518,132 452,132" fill="#ffd700" stroke="#222222" stroke-width="2" />
-                                    <path d="M 485 88 L 485 114 M 485 122 L 485 126" stroke="#111111" stroke-width="5.5" stroke-linecap="round" />
-
-                                    <!-- Señal Circular de Prohibido / Bloqueado 🚫 (Izquierda) -->
-                                    <line x1="315" y1="95" x2="315" y2="210" stroke="#cccccc" stroke-width="4" />
-                                    <circle cx="315" cy="110" r="32" fill="#0d47a1" stroke="#d32f2f" stroke-width="6" />
-                                    <line x1="292" y1="133" x2="338" y2="87" stroke="#d32f2f" stroke-width="6" />
-
-                                    <!-- Sombrilla Rosa Cerrada de Yukari (Izquierda) -->
-                                    <line x1="332" y1="165" x2="360" y2="208" stroke="#555555" stroke-width="3.5" stroke-linecap="round" />
-                                    <path d="M 312 145 Q 338 135 348 182 Z" fill="#ffb7c5" stroke="#c2185b" stroke-width="2" />
-
-                                    <!-- Chibi Yukari Yakumo (Centro) -->
-                                    <!-- Cabello Rubio Largo Trasero -->
-                                    <path d="M 368 120 Q 352 145 355 198 Q 400 202 445 198 Q 448 145 432 120 Z" fill="#ffd166" />
-
-                                    <!-- Vestido Blanco con Volantes y Tabardo Púrpura -->
-                                    <path d="M 368 148 Q 348 185 362 208 L 438 208 Q 452 185 432 148 Z" fill="#ffffff" stroke="#e0e0e0" stroke-width="1.5" />
-                                    <path d="M 386 148 L 414 148 L 418 208 L 382 208 Z" fill="#4a148c" />
-                                    <!-- Ojo del Límite en el Tabardo -->
-                                    <ellipse cx="400" cy="190" rx="11" ry="6.5" fill="#ff6d00" stroke="#ffffff" stroke-width="1.5" />
-                                    <circle cx="400" cy="190" r="3.5" fill="#111111" />
-                                    <!-- Trigramas -->
-                                    <rect x="392" y="156" width="16" height="2" fill="#ffffff" />
-                                    <rect x="392" y="161" width="16" height="2" fill="#ffffff" />
-                                    <rect x="392" y="166" width="16" height="2" fill="#ffffff" />
-
-                                    <!-- Brazos y Manitas Simples -->
-                                    <path d="M 383 154 L 373 172" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
-                                    <circle cx="371" cy="174" r="4.5" fill="#ffdfd3" />
-
-                                    <path d="M 417 154 L 427 172" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
-                                    <circle cx="429" cy="174" r="4.5" fill="#ffdfd3" />
-
-                                    <!-- 2 Trenzas Delanteras Rubias con Moños Rojos -->
-                                    <path d="M 372 134 Q 364 156 366 178 L 371 178 Q 373 156 376 134 Z" fill="#ffd166" />
-                                    <polygon points="362,176 372,176 367,182" fill="#d32f2f" />
-
-                                    <path d="M 428 134 Q 436 156 434 178 L 429 178 Q 427 156 424 134 Z" fill="#ffd166" />
-                                    <polygon points="428,176 438,176 433,182" fill="#d32f2f" />
-
-                                    <!-- Cabeza, Sonrisa y Flequillo -->
-                                    <circle cx="400" cy="136" r="16" fill="#ffdfd3" />
-                                    <path d="M 384 128 Q 392 135 400 128 Q 408 135 416 128 Z" fill="#ffd166" />
-                                    <circle cx="393" cy="135" r="2.2" fill="#6a1b9a" />
-                                    <circle cx="407" cy="135" r="2.2" fill="#6a1b9a" />
-                                    <path d="M 396 141 Q 400 145 404 141" stroke="#b7094c" stroke-width="1.5" fill="none" stroke-linecap="round" />
-
-                                    <!-- Sombrero Mob Cap Blanco con Cinta y Moño Rojo -->
-                                    <path d="M 368 126 Q 400 100 432 126 Q 400 118 368 126 Z" fill="#ffffff" stroke="#dddddd" stroke-width="1" />
-                                    <path d="M 376 124 Q 400 112 424 124" stroke="#d32f2f" stroke-width="3" fill="none" />
-                                    <polygon points="395,112 405,112 400,118" fill="#d32f2f" />
-                                </svg>
+                            <div style="display: inline-block; background: var(--th-gold); color: #ffffff; padding: 6px 18px; border-radius: 20px; font-family: var(--font-heading); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(212, 160, 23, 0.3);">
+                                Spell Card: Boundary-Sign ["Sitio en Construcción"]
                             </div>
-
-                            <!-- CONTENIDO DE TEXTO Y BOTÓN SOBRE LIENZO CLARO -->
-                            <div style="padding: 30px 24px; text-align: center; max-width: 600px;">
-                                <div style="display: inline-block; background: var(--th-gold); color: #ffffff; padding: 6px 18px; border-radius: 20px; font-family: var(--font-heading); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(212, 160, 23, 0.3);">
-                                    Spell Card: Boundary-Sign ["Sitio en Construcción"]
-                                </div>
-                                <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.8rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Lugar en construcción</h1>
-                                <p style="font-size: 1.15rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 24px;">
-                                    El titular de este dominio aún no ha empezado a construir. Ten paciencia.
-                                </p>
-                                <button class="gx-btn-go" style="padding: 12px 28px; font-size: 1rem;" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
-                            </div>
+                            <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.8rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Lugar en construcción</h1>
+                            <p style="font-size: 1.15rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 24px; max-width: 500px;">
+                                El titular de este dominio aún no ha empezado a construir. Ten paciencia.
+                            </p>
+                            <button class="gx-btn-go" style="padding: 12px 28px; font-size: 1rem;" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
                         </div>
                     `;
                     return;

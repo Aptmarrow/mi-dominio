@@ -20,7 +20,7 @@ Object.assign(GensokyoApp, {
         if (!viewport) return;
 
         const cleanQ = (query || '').toLowerCase().trim();
-        const safeEncQ = encodeURIComponent(query || '');
+        this.currentSearchQuery = query || '';
 
         const allDomains = { ...GensokyoSeedData.domains, ...this.userDomains };
         const matchedWebs = [];
@@ -103,12 +103,12 @@ Object.assign(GensokyoApp, {
                     </div>
                 </div>
 
-                <!-- CONTROL SEGURO DE PESTAÑAS MEDIANTE encodeURIComponent -->
+                <!-- PESTAÑAS DE RESULTADOS SIN DATOS DINÁMICOS EN onClick -->
                 <nav class="google-serp-tab-bar">
-                    <button class="google-tab ${filterTab === 'all' ? 'active' : ''}" onclick="GensokyoApp.renderSearchResults(decodeURIComponent('${safeEncQ}'), 'all')">Todo</button>
-                    <button class="google-tab ${filterTab === 'videos' ? 'active' : ''}" onclick="GensokyoApp.renderSearchResults(decodeURIComponent('${safeEncQ}'), 'videos')">Videos</button>
-                    <button class="google-tab ${filterTab === 'images' ? 'active' : ''}" onclick="GensokyoApp.renderSearchResults(decodeURIComponent('${safeEncQ}'), 'images')">Imágenes</button>
-                    <button class="google-tab ${filterTab === 'news' ? 'active' : ''}" onclick="GensokyoApp.renderSearchResults(decodeURIComponent('${safeEncQ}'), 'news')">Noticias</button>
+                    <button class="google-tab ${filterTab === 'all' ? 'active' : ''}" onclick="GensokyoApp.setSearchFilterTab('all')">Todo</button>
+                    <button class="google-tab ${filterTab === 'videos' ? 'active' : ''}" onclick="GensokyoApp.setSearchFilterTab('videos')">Videos</button>
+                    <button class="google-tab ${filterTab === 'images' ? 'active' : ''}" onclick="GensokyoApp.setSearchFilterTab('images')">Imágenes</button>
+                    <button class="google-tab ${filterTab === 'news' ? 'active' : ''}" onclick="GensokyoApp.setSearchFilterTab('news')">Noticias</button>
                     <button class="google-tab">Más ▾</button>
                     <div class="serp-tools-space"></div>
                     <button class="google-tab tools-btn">Herramientas ▾</button>
@@ -124,6 +124,10 @@ Object.assign(GensokyoApp, {
                 ${filterTab === 'news' ? this.renderWebResultsHTML(matchedWebs.filter((w) => w.domain.includes('news') || w.domain.includes('blog'))) : ''}
             </div>
         `;
+    },
+
+    setSearchFilterTab(filterTab) {
+        this.renderSearchResults(this.currentSearchQuery || '', filterTab || 'all');
     },
 
     renderWebResultsHTML(webResults) {

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GensokyoNetApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1e8d65236e33ba348dc1e004ccd83e192d0ce6d9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+008197139d75e2c9ef379f960eed38c0c2867e3d")]
 [assembly: System.Reflection.AssemblyProductAttribute("GensokyoNet")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GensokyoNet - Navegador Doujin de Touhou")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
