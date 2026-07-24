@@ -126,6 +126,31 @@ Object.assign(GensokyoApp, {
         return hasExternalTld || isHttp;
     },
 
+    initViewportObserver() {
+        const viewport = document.getElementById('th-viewport');
+        if (!viewport || !window.chrome || !window.chrome.webview) return;
+
+        if (this._viewportObserver) {
+            this._viewportObserver.disconnect();
+        }
+
+        this._viewportObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const rect = entry.target.getBoundingClientRect();
+                window.chrome.webview.postMessage({
+                    action: 'viewportRectChanged',
+                    rect: {
+                        x: Math.round(rect.left),
+                        y: Math.round(rect.top),
+                        width: Math.round(rect.width),
+                        height: Math.round(rect.height)
+                    }
+                });
+            }
+        });
+        this._viewportObserver.observe(viewport);
+    },
+
     navigate(fullUrl, forceCross = false) {
         const activeTab = this.getActiveTab();
         if (!activeTab) return;
@@ -137,6 +162,10 @@ Object.assign(GensokyoApp, {
 
         const isLocalhost = this.isLocalhostDomain(path);
         const isExternal = !isLocalhost && this.isExternalDomain(path);
+
+        if (!isExternal && window.chrome && window.chrome.webview) {
+            window.chrome.webview.postMessage({ action: 'returnToIntranet' });
+        }
 
         if (isExternal && !forceCross) {
             const policy = this.hakureiPolicy || 'ask';
@@ -171,6 +200,7 @@ Object.assign(GensokyoApp, {
         this.updateUrlInput(normalizedUrl);
         this.renderRoute(normalizedUrl);
         this.updateSidebarActiveState(normalizedUrl);
+        this.initViewportObserver();
     },
 
     proceedCrossHakureiBarrier(externalDomain) {
@@ -188,6 +218,17 @@ Object.assign(GensokyoApp, {
             activeTab.history = activeTab.history.slice(0, activeTab.historyIndex + 1);
             activeTab.history.push(normalizedUrl);
             activeTab.historyIndex = activeTab.history.length - 1;
+        }
+
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.postMessage({
+                action: 'crossHakureiBarrier',
+                url: targetUrl
+            });
+            this.renderTabsBar();
+            this.updateUrlInput(normalizedUrl);
+            this.updateSidebarActiveState(normalizedUrl);
+            return;
         }
 
         const wrapperEl = document.querySelector('.gx-viewport-wrapper');
