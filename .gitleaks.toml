@@ -1,0 +1,15 @@
+title = "GensokyoNet Gitleaks config"
+
+[[rules]]
+id = "gensokyo-token-pattern"
+description = "Possible hardcoded Gensokyo token"
+regex = '''gx_(live|oauth)_[A-Za-z0-9_\-]+'''
+secretGroup = 0
+entropy = 2.5
+
+[[rules]]
+id = "possible-api-key-generic"
+description = "Generic API key style string"
+regex = '''(?i)(api[_-]?key|token|secret)\s*[:=]\s*["\'][A-Za-z0-9_\-]{16,}["\']'''
+secretGroup = 0
+entropy = 3.0

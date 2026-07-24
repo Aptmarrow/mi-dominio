@@ -111,23 +111,49 @@ Object.assign(GensokyoApp, {
         }
     },
 
-    navigate(fullUrl) {
+    isExternalDomain(pathStr) {
+        if (!pathStr || typeof pathStr !== 'string') return false;
+        const clean = pathStr.replace(/^(gensokyo|outside):\/\//i, '').trim().toLowerCase();
+        if (this.isLocalhostDomain(clean)) return false;
+        if (clean === 'home' || clean === '' || clean === 'register' || clean === 'builder' || clean.startsWith('search')) return false;
+
+        const hasExternalTld = /\.(com|org|net|io|app|ai|edu|co|es|ar|tv|me|dev|xyz|info|us|uk)$/i.test(clean.split('/')[0].split('?')[0]);
+        const isHttp = pathStr.toLowerCase().startsWith('http://') || pathStr.toLowerCase().startsWith('https://') || pathStr.toLowerCase().startsWith('outside://');
+        return hasExternalTld || isHttp;
+    },
+
+    navigate(fullUrl, forceCross = false) {
         const activeTab = this.getActiveTab();
         if (!activeTab) return;
 
         let path = fullUrl;
         if (path.startsWith('gensokyo://')) path = path.replace('gensokyo://', '');
+        if (path.startsWith('outside://')) path = path.replace('outside://', '');
         path = path.trim();
 
         const isLocalhost = this.isLocalhostDomain(path);
+        const isExternal = !isLocalhost && this.isExternalDomain(path);
 
-        if (!isLocalhost && path.includes('.') && (path.endsWith('.com') || path.endsWith('.org') || path.endsWith('.net') || path.includes('http') || path.includes('roblox') || path.includes('google'))) {
+        if (isExternal && !forceCross) {
+            const policy = this.hakureiPolicy || 'ask';
+
+            if (policy === 'block') {
+                this.renderHakureiBlocked(path);
+                this.updateUrlInput(`outside://${path}`);
+                return;
+            }
+
+            if (policy === 'auto') {
+                this.proceedCrossHakureiBarrier(path);
+                return;
+            }
+
             this.renderHakureiBarrier(path);
-            this.updateUrlInput(path);
+            this.updateUrlInput(`outside://${path}`);
             return;
         }
 
-        const normalizedUrl = `gensokyo://${path}`;
+        const normalizedUrl = isExternal ? `outside://${path}` : `gensokyo://${path}`;
         activeTab.url = normalizedUrl;
         activeTab.title = this.getTabTitleFromUrl(normalizedUrl);
 
@@ -143,14 +169,71 @@ Object.assign(GensokyoApp, {
         this.updateSidebarActiveState(normalizedUrl);
     },
 
+    proceedCrossHakureiBarrier(externalDomain) {
+        const activeTab = this.getActiveTab();
+        if (!activeTab) return;
+
+        const cleanDomain = externalDomain.replace(/^(gensokyo|outside|https?):\/\//i, '').trim();
+        const targetUrl = cleanDomain.startsWith('http://') || cleanDomain.startsWith('https://') ? cleanDomain : `https://${cleanDomain}`;
+        const normalizedUrl = `outside://${cleanDomain}`;
+
+        activeTab.url = normalizedUrl;
+        activeTab.title = cleanDomain;
+
+        if (activeTab.history[activeTab.historyIndex] !== normalizedUrl) {
+            activeTab.history = activeTab.history.slice(0, activeTab.historyIndex + 1);
+            activeTab.history.push(normalizedUrl);
+            activeTab.historyIndex = activeTab.history.length - 1;
+        }
+
+        const wrapperEl = document.querySelector('.gx-viewport-wrapper');
+        const viewport = document.getElementById('th-viewport');
+
+        if (viewport) {
+            viewport.classList.add('full-width');
+            if (wrapperEl) wrapperEl.classList.add('full-bleed');
+
+            viewport.innerHTML = `
+                <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms allow-same-origin allow-popups" src="${this.escapeHtml(targetUrl)}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
+            `;
+        }
+
+        this.renderTabsBar();
+        this.updateUrlInput(normalizedUrl);
+        this.updateSidebarActiveState(normalizedUrl);
+    },
+
     updateUrlInput(url) {
         const input = document.getElementById('th-url-input');
         if (!input) return;
-        input.value = url.replace('gensokyo://', '');
+
+        let clean = (url || '').trim();
+        if (clean.startsWith('gensokyo://')) {
+            clean = clean.replace('gensokyo://', '');
+            if (this.isExternalDomain(clean)) {
+                input.value = `OUTSIDE:// ${clean.replace(/^(https?:\/\/|outside:\/\/)/i, '')}`;
+                return;
+            }
+            input.value = `GENSOKYO:// ${clean}`;
+            return;
+        }
+
+        if (clean.startsWith('outside://')) {
+            clean = clean.replace('outside://', '');
+            input.value = `OUTSIDE:// ${clean}`;
+            return;
+        }
+
+        if (this.isExternalDomain(clean)) {
+            input.value = `OUTSIDE:// ${clean.replace(/^https?:\/\//i, '')}`;
+            return;
+        }
+
+        input.value = `GENSOKYO:// ${clean}`;
     },
 
     updateSidebarActiveState(url) {
-        const clean = url.replace('gensokyo://', '').trim().toLowerCase();
+        const clean = url.replace(/^(gensokyo|outside):\/\//i, '').trim().toLowerCase();
         document.querySelectorAll('.gx-side-btn').forEach((btn) => btn.classList.remove('active'));
 
         if (clean === 'home' || clean === '') document.getElementById('nav-home')?.classList.add('active');
@@ -609,19 +692,44 @@ Object.assign(GensokyoApp, {
         const viewport = document.getElementById('th-viewport');
         if (!viewport) return;
 
+        const cleanDomain = externalDomain.replace(/^(https?:\/\/|outside:\/\/|gensokyo:\/\/)/i, '').trim();
+
         viewport.innerHTML = `
-            <div class="th-card" style="max-width: 650px; margin: 30px auto; text-align: center;">
+            <div class="th-card" style="max-width: 650px; margin: 40px auto; text-align: center; border: 2px solid var(--th-crimson);">
                 <div style="width: 70px; height: 70px; background: var(--th-crimson-light); color: var(--th-crimson); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
                     <svg class="th-svg-icon" style="width:36px; height:36px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
                 </div>
-                <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.5rem; margin-bottom: 10px;">Barrera Hakurei Impenetrable</h1>
-                <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px;">
-                    Estás intentando salir de la intranet <strong>GensokyoNet</strong> hacia la web externa (<strong>${this.escapeHtml(externalDomain)}</strong>).<br>
-                    La Gran Barrera Hakurei protege esta red doujin contra rastreadores y anuncios del mundo exterior.
+                <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.6rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Barrera Hakurei Impenetrable</h1>
+                <p style="font-size: 1.05rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 20px;">
+                    Estás intentando abandonar GensokyoNet para acceder al Mundo Exterior (<code>OUTSIDE:// ${this.escapeHtml(cleanDomain)}</code>).
+                </p>
+                <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                    <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
+                    <button class="gx-btn-go" style="background: var(--th-bg-main); border: 1.5px solid var(--th-crimson); color: var(--th-crimson); font-weight: 700;" onclick="GensokyoApp.proceedCrossHakureiBarrier('${this.escapeHtml(cleanDomain)}')">Cruzar Barrera Bajo Tu Propio Riesgo ➔</button>
+                </div>
+            </div>
+        `;
+    },
+
+    renderHakureiBlocked(externalDomain) {
+        const viewport = document.getElementById('th-viewport');
+        if (!viewport) return;
+
+        const cleanDomain = externalDomain.replace(/^(https?:\/\/|outside:\/\/|gensokyo:\/\/)/i, '').trim();
+
+        viewport.innerHTML = `
+            <div class="th-card" style="max-width: 650px; margin: 40px auto; text-align: center; border: 2px solid var(--th-crimson);">
+                <div style="width: 70px; height: 70px; background: var(--th-crimson-light); color: var(--th-crimson); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+                    <svg class="th-svg-icon" style="width:36px; height:36px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                </div>
+                <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.6rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Acceso al Mundo Exterior Bloqueado</h1>
+                <p style="font-size: 1.05rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 20px;">
+                    La Gran Barrera Hakurei está configurada para <strong>bloquear el acceso al Mundo Exterior</strong> (<code>OUTSIDE:// ${this.escapeHtml(cleanDomain)}</code>).<br>
+                    Puedes cambiar esta política desde el menú de Preferencias de GensokyoNet.
                 </p>
                 <div style="display: flex; gap: 12px; justify-content: center;">
                     <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
-                    <a href="https://${this.escapeHtml(externalDomain)}" target="_blank" rel="noopener noreferrer" class="gx-btn-go" style="background: var(--th-bg-main); border: 1px solid var(--th-border-warm); color: var(--th-text-main); text-decoration: none;">Cruzar Barrera Bajo Tu Propio Riesgo ➔</a>
+                    <button class="gx-btn-go" style="background: var(--th-bg-main); border: 1.5px solid var(--th-border-warm); color: var(--th-text-main);" onclick="GensokyoApp.showThemeModal()">Abrir Preferencias ⚙️</button>
                 </div>
             </div>
         `;

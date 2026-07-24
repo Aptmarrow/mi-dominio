@@ -1,0 +1,15 @@
+{
+  "name": "gensokyonet-security",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Security checks for GensokyoNet",
+  "scripts": {
+    "test:security": "playwright test tests/security --project=firefox",
+    "test:security:headed": "playwright test tests/security --project=firefox --headed",
+    "test:security:ui": "playwright test tests/security --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "http-server": "^14.1.1"
+  }
+}

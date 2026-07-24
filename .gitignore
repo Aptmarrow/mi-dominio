@@ -10,3 +10,7 @@ Thumbs.db
 
 # Local build / Temp
 *.tmp
+
+# Playwright outputs
+playwright-report/
+test-results/

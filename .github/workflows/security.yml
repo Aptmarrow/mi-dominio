@@ -1,0 +1,74 @@
+name: security-checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  semgrep:
+    name: semgrep-sast
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep (OWASP + custom rules)
+        run: semgrep scan --config p/owasp-top-ten --config .semgrep/rules --error
+
+  gitleaks:
+    name: gitleaks-secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks (without Docker)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  playwright-security:
+    name: playwright-negative-security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright security tests
+        run: npx playwright test tests/security
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-security-report
+          path: |
+            playwright-report
+            test-results
