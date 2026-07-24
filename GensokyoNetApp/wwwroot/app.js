@@ -1,6 +1,6 @@
 /**
  * GensokyoNet Engine
- * Núcleo de estado y persistencia.
+ * Núcleo de estado, persistencia y seguridad.
  * Los módulos de UI/rutas se cargan desde /js.
  */
 
@@ -51,7 +51,14 @@ const GensokyoApp = {
     },
 
     saveAccountsDB() {
-        localStorage.setItem('gensokyo_accounts_db', JSON.stringify(this.accountsDB));
+        try {
+            localStorage.setItem('gensokyo_accounts_db', JSON.stringify(this.accountsDB));
+        } catch (e) {
+            console.error('Error de cuota en almacenamiento local de Cuentas', e);
+            if (this.showToastNotification) {
+                this.showToastNotification('No se pudo guardar la cuenta: Almacenamiento lleno.', 'error');
+            }
+        }
     },
 
     loadPassportData() {
@@ -68,7 +75,14 @@ const GensokyoApp = {
     },
 
     savePassportData() {
-        localStorage.setItem('gensokyo_passport', JSON.stringify(this.passport));
+        try {
+            localStorage.setItem('gensokyo_passport', JSON.stringify(this.passport));
+        } catch (e) {
+            console.error('Error de cuota en almacenamiento local de Pasaporte', e);
+            if (this.showToastNotification) {
+                this.showToastNotification('No se pudo guardar el Pasaporte: Almacenamiento lleno.', 'error');
+            }
+        }
         this.updatePassportUI();
     },
 
@@ -83,7 +97,14 @@ const GensokyoApp = {
     },
 
     saveUserDomains() {
-        localStorage.setItem('gensokyo_user_domains', JSON.stringify(this.userDomains));
+        try {
+            localStorage.setItem('gensokyo_user_domains', JSON.stringify(this.userDomains));
+        } catch (e) {
+            console.error('Error de cuota en almacenamiento local de Dominios', e);
+            if (this.showToastNotification) {
+                this.showToastNotification('No se pudieron guardar los cambios del dominio: Límite de cuota superado.', 'error');
+            }
+        }
         this.updateDomainCount();
     },
 
@@ -130,13 +151,25 @@ const GensokyoApp = {
         document.getElementById('th-donation-modal')?.classList.add('hidden');
     },
 
+    /* HASHEO SEGURO DE CONTRASEÑAS CON WEB CRYPTO API (SHA-256) */
+    async hashPassword(password) {
+        if (!password) return '';
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    },
+
+    /* ESCAPADO COMPLETO DE HTML Y ATRIBUTOS JS SECURES (CONVIRTIE ' Y ") */
     escapeHtml(str) {
-        return (str || '')
+        if (str === null || str === undefined) return '';
+        return String(str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
+            .replace(/'/g, '&#39;');
     }
 };
 

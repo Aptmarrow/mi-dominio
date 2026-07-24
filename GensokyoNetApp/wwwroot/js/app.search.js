@@ -20,12 +20,19 @@ Object.assign(GensokyoApp, {
         if (!viewport) return;
 
         const cleanQ = (query || '').toLowerCase().trim();
+        const safeEncQ = encodeURIComponent(query || '');
 
         const allDomains = { ...GensokyoSeedData.domains, ...this.userDomains };
         const matchedWebs = [];
 
         Object.keys(allDomains).forEach((domainKey) => {
             const site = allDomains[domainKey];
+
+            // EXCLUIR DOMINIOS NO LISTADOS O PRIVADOS DE LAS BÚSQUEDAS
+            if (site.visibility === 'unlisted' || site.visibility === 'private') {
+                return;
+            }
+
             const title = (site.title || '').toLowerCase();
             const snippet = (site.snippet || site.author || '').toLowerCase();
             const content = (site.htmlContent || site.content || '').toLowerCase();
@@ -51,13 +58,19 @@ Object.assign(GensokyoApp, {
             if (!cleanQ) return true;
             return vid.title.toLowerCase().includes(cleanQ) ||
                 vid.description.toLowerCase().includes(cleanQ) ||
-                vid.tags.some((t) => t.toLowerCase().includes(cleanQ));
+                imgTagFilter(vid.tags, cleanQ);
         });
+
+        function imgTagFilter(tags, q) {
+            return Array.isArray(tags) && tags.some(t => String(t).toLowerCase().includes(q));
+        }
 
         let activeCount = matchedWebs.length;
         if (filterTab === 'images') activeCount = matchedImages.length;
         if (filterTab === 'videos') activeCount = matchedVideos.length;
         if (filterTab === 'news') activeCount = matchedWebs.filter((w) => w.domain.includes('news') || w.domain.includes('blog')).length;
+
+        const safeAvatar = this.sanitizeAvatarUrl ? this.sanitizeAvatarUrl(this.passport.avatarUrl) : (this.passport.avatarUrl || 'assets/nameless_avatar.png');
 
         viewport.innerHTML = `
             <div class="google-serp-container">
@@ -85,16 +98,17 @@ Object.assign(GensokyoApp, {
                             <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm4-10v4h4V4h-4zm-4 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
                         </span>
                         <div id="serp-header-avatar" class="serp-avatar-circle" onclick="GensokyoApp.showPassportModal()" title="Pasaporte de Gensokyo: ${this.escapeHtml(this.passport.username)} (${this.escapeHtml(this.passport.userId)})">
-                            <img src="${this.passport.avatarUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" alt="${this.escapeHtml(this.passport.username)}">
+                            <img src="${this.escapeHtml(safeAvatar)}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" alt="${this.escapeHtml(this.passport.username)}">
                         </div>
                     </div>
                 </div>
 
+                <!-- CONTROL SEGURO DE PESTAÑAS MEDIANTE encodeURIComponent -->
                 <nav class="google-serp-tab-bar">
-                    <button class="google-tab ${filterTab === 'all' ? 'active' : ''}" onclick="GensokyoApp.renderSearchResults('${this.escapeHtml(query)}', 'all')">Todo</button>
-                    <button class="google-tab ${filterTab === 'videos' ? 'active' : ''}" onclick="GensokyoApp.renderSearchResults('${this.escapeHtml(query)}', 'videos')">Videos</button>
-                    <button class="google-tab ${filterTab === 'images' ? 'active' : ''}" onclick="GensokyoApp.renderSearchResults('${this.escapeHtml(query)}', 'images')">Imágenes</button>
-                    <button class="google-tab ${filterTab === 'news' ? 'active' : ''}" onclick="GensokyoApp.renderSearchResults('${this.escapeHtml(query)}', 'news')">Noticias</button>
+                    <button class="google-tab ${filterTab === 'all' ? 'active' : ''}" onclick="GensokyoApp.renderSearchResults(decodeURIComponent('${safeEncQ}'), 'all')">Todo</button>
+                    <button class="google-tab ${filterTab === 'videos' ? 'active' : ''}" onclick="GensokyoApp.renderSearchResults(decodeURIComponent('${safeEncQ}'), 'videos')">Videos</button>
+                    <button class="google-tab ${filterTab === 'images' ? 'active' : ''}" onclick="GensokyoApp.renderSearchResults(decodeURIComponent('${safeEncQ}'), 'images')">Imágenes</button>
+                    <button class="google-tab ${filterTab === 'news' ? 'active' : ''}" onclick="GensokyoApp.renderSearchResults(decodeURIComponent('${safeEncQ}'), 'news')">Noticias</button>
                     <button class="google-tab">Más ▾</button>
                     <div class="serp-tools-space"></div>
                     <button class="google-tab tools-btn">Herramientas ▾</button>
@@ -150,7 +164,7 @@ Object.assign(GensokyoApp, {
             <div class="search-images-grid">
                 ${imageResults.map((img) => `
                     <div class="search-image-card" onclick="GensokyoApp.navigate('gensokyo://${this.escapeHtml(img.domain)}')">
-                        <img src="${img.url}" class="search-image-thumb" alt="${this.escapeHtml(img.title)}">
+                        <img src="${this.escapeHtml(img.url)}" class="search-image-thumb" alt="${this.escapeHtml(img.title)}">
                         <div class="search-image-meta">
                             <div class="search-image-title">${this.escapeHtml(img.title)}</div>
                             <div class="search-image-sub">gensokyo://${this.escapeHtml(img.domain)} • ${this.escapeHtml(img.author)}</div>
@@ -171,7 +185,7 @@ Object.assign(GensokyoApp, {
                 ${videoResults.map((vid) => `
                     <div class="search-video-card">
                         <div class="search-video-preview">
-                            <iframe src="${vid.embedUrl}" style="width:100%; height:100%; border:none;" allowfullscreen></iframe>
+                            <iframe src="${this.escapeHtml(vid.embedUrl)}" style="width:100%; height:100%; border:none;" allowfullscreen></iframe>
                             <span class="search-video-duration">${this.escapeHtml(vid.duration)}</span>
                         </div>
                         <div class="search-video-info">

@@ -75,6 +75,7 @@ Object.assign(GensokyoApp, {
         if (clean === 'reimu.shrine') return 'reimu.shrine';
         if (clean === 'register') return 'Reclamar Dominio';
         if (clean === 'builder') return 'Creador Web';
+        if (clean.includes('localhost') || clean.includes('127.0.0.1')) return `Localhost (${clean})`;
         return clean;
     },
 
@@ -87,12 +88,27 @@ Object.assign(GensokyoApp, {
             rawVal = rawVal.replace('gensokyo://', '');
         }
 
-        if (!rawVal.includes('.') && !rawVal.startsWith('search') && !rawVal.startsWith('register') && !rawVal.startsWith('builder') && !rawVal.startsWith('home')) {
+        const isLocalhost = rawVal.toLowerCase().includes('localhost') || rawVal.includes('127.0.0.1');
+
+        if (!isLocalhost && !rawVal.includes('.') && !rawVal.startsWith('search') && !rawVal.startsWith('register') && !rawVal.startsWith('builder') && !rawVal.startsWith('home')) {
             this.navigate(`gensokyo://search?q=${encodeURIComponent(rawVal)}`);
             return;
         }
 
         this.navigate(`gensokyo://${rawVal}`);
+    },
+
+    isLocalhostDomain(pathStr) {
+        if (!pathStr || typeof pathStr !== 'string') return false;
+        const clean = pathStr.replace('gensokyo://', '').trim().toLowerCase();
+        try {
+            const fakeUrl = clean.startsWith('http://') || clean.startsWith('https://') ? clean : `http://${clean}`;
+            const parsed = new URL(fakeUrl);
+            const host = parsed.hostname.toLowerCase();
+            return host === 'localhost' || host === '127.0.0.1';
+        } catch (e) {
+            return false;
+        }
     },
 
     navigate(fullUrl) {
@@ -103,7 +119,9 @@ Object.assign(GensokyoApp, {
         if (path.startsWith('gensokyo://')) path = path.replace('gensokyo://', '');
         path = path.trim();
 
-        if (path.includes('.') && (path.endsWith('.com') || path.endsWith('.org') || path.endsWith('.net') || path.includes('http') || path.includes('roblox') || path.includes('google'))) {
+        const isLocalhost = this.isLocalhostDomain(path);
+
+        if (!isLocalhost && path.includes('.') && (path.endsWith('.com') || path.endsWith('.org') || path.endsWith('.net') || path.includes('http') || path.includes('roblox') || path.includes('google'))) {
             this.renderHakureiBarrier(path);
             this.updateUrlInput(path);
             return;
@@ -172,11 +190,120 @@ Object.assign(GensokyoApp, {
         if (tab) this.renderRoute(tab.url);
     },
 
+    /* VERIFICACIÓN PREVIA DE CONEXIÓN A SERVIDORES LOCALHOST (PING SALVAGUARDA) */
+    async checkLocalhostStatus(targetUrl) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 1200);
+            await fetch(targetUrl, { mode: 'no-cors', signal: controller.signal });
+            clearTimeout(timeoutId);
+            return true;
+        } catch (err) {
+            return false;
+        }
+    },
+
+    /* VALIDACIÓN ESTRICTA DE CONTENIDO RENDERIZABLE (FILTRA READMES Y PLANTILLAS VACÍAS) */
+    isHtmlContentEmpty(htmlText) {
+        if (!htmlText || typeof htmlText !== 'string') return true;
+        const cleanStr = htmlText.trim();
+        if (cleanStr === '') return true;
+
+        try {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = cleanStr;
+
+            tempDiv.querySelectorAll('script, style, meta, link').forEach(el => el.remove());
+
+            const hasVisualMedia = tempDiv.querySelector('img, video, canvas, svg, iframe, audio, input, button, select, a, p, h1, h2, h3, h4, h5, h6, table, form, article, section, header, footer');
+            const visibleTextLength = tempDiv.textContent ? tempDiv.textContent.trim().length : 0;
+
+            return !hasVisualMedia && visibleTextLength < 5;
+        } catch (err) {
+            return cleanStr.length < 5;
+        }
+    },
+
+    /* CAPA DE RESOLUCIÓN API DE DOMINIOS (DESACOPLAMIENTO DEL BUCKET) */
+    resolveDomainRoute(path) {
+        const seedSite = GensokyoSeedData.domains[path];
+        if (seedSite) {
+            return {
+                domain: path,
+                activeVersion: 'v1.0-seed',
+                ownerId: 'GENSOKYO_NET',
+                author: seedSite.author || 'Hakurei Shrine',
+                targetUrl: `https://cdn.gensokyo.net/assets/official/${path}/index.html`,
+                htmlContent: seedSite.content,
+                isSeed: true
+            };
+        }
+
+        const userSite = this.userDomains[path];
+        if (userSite) {
+            const isPrivate = userSite.visibility === 'private';
+            const isOwner = (this.passport.userId && this.passport.userId !== 'ID#0000' && (userSite.ownerId === this.passport.userId || (Array.isArray(this.passport.ownedDomains) && this.passport.ownedDomains.includes(path))));
+
+            if (isPrivate && !isOwner) {
+                return {
+                    domain: path,
+                    isPrivateBlocked: true,
+                    title: userSite.title || path,
+                    author: userSite.author
+                };
+            }
+
+            const activeVer = userSite.activeVersion || 'v1';
+            const versionObj = (userSite.versions && userSite.versions[activeVer]) ? userSite.versions[activeVer] : null;
+            const finalHtml = versionObj ? versionObj.htmlContent : userSite.htmlContent;
+            const versionsList = userSite.versions ? Object.keys(userSite.versions) : ['v1'];
+
+            const isEmpty = this.isHtmlContentEmpty(finalHtml);
+
+            return {
+                domain: path,
+                title: userSite.title || path,
+                activeVersion: activeVer,
+                versions: versionsList,
+                ownerId: userSite.ownerId,
+                author: userSite.author,
+                targetUrl: `https://cdn.gensokyo.net/assets/${path}/${activeVer}/index.html`,
+                htmlContent: finalHtml,
+                sizeBytes: versionObj ? versionObj.sizeBytes : (finalHtml ? finalHtml.length : 0),
+                isEmptySite: isEmpty,
+                isUserSite: true
+            };
+        }
+
+        return null;
+    },
+
     renderRoute(fullUrl) {
+        const wrapperEl = document.querySelector('.gx-viewport-wrapper');
         const viewport = document.getElementById('th-viewport');
         if (!viewport) return;
 
-        let path = fullUrl.replace('gensokyo://', '').trim();
+        let path = fullUrl.replace('gensokyo://', '').trim().toLowerCase();
+
+        // CONTROL DE VISIBILIDAD DE BARRA DE ESTADO INFERIOR (Solo visible en Home)
+        const statusbarEl = document.querySelector('.gx-statusbar');
+        if (statusbarEl) {
+            if (path === '' || path === 'home') {
+                statusbarEl.classList.remove('hidden');
+            } else {
+                statusbarEl.classList.add('hidden');
+            }
+        }
+
+        const isFullWidthRoute = this.isLocalhostDomain(path) || (path.includes('.') && !path.startsWith('search'));
+
+        if (isFullWidthRoute) {
+            viewport.classList.add('full-width');
+            if (wrapperEl) wrapperEl.classList.add('full-bleed');
+        } else {
+            viewport.classList.remove('full-width');
+            if (wrapperEl) wrapperEl.classList.remove('full-bleed');
+        }
 
         if (path.startsWith('search')) {
             const urlParams = new URLSearchParams(path.includes('?') ? path.split('?')[1] : '');
@@ -202,28 +329,210 @@ Object.assign(GensokyoApp, {
             return;
         }
 
-        if (GensokyoSeedData.domains[path]) {
-            viewport.innerHTML = GensokyoSeedData.domains[path].content;
+        // SOPORTE PARA ENTORNO DE DESARROLLO LOCAL (LOCALHOST & 127.0.0.1 BORDE A BORDE NATIVO CON SANDBOX)
+        if (this.isLocalhostDomain(path)) {
+            let targetUrl = path;
+            if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+                targetUrl = `http://${targetUrl}`;
+            }
+
+            viewport.innerHTML = `
+                <div class="th-card" style="max-width: 600px; margin: 40px auto; text-align: center; width: 100%;">
+                    <h2 class="th-card-title" style="color: var(--th-crimson); margin-bottom: 12px;">Comprobando Servidor Local...</h2>
+                    <p style="font-size:0.9rem; color:var(--th-text-sub);">Conectando con <code>${this.escapeHtml(targetUrl)}</code></p>
+                </div>
+            `;
+
+            this.checkLocalhostStatus(targetUrl).then((isOnline) => {
+                if (isOnline) {
+                    viewport.innerHTML = `
+                        <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms allow-same-origin" src="${this.escapeHtml(targetUrl)}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
+                    `;
+                } else {
+                    viewport.classList.remove('full-width');
+                    if (wrapperEl) wrapperEl.classList.remove('full-bleed');
+
+                    viewport.innerHTML = `
+                        <div class="th-card" style="max-width: 650px; margin: 40px auto; text-align: center;">
+                            <div style="width: 70px; height: 70px; background: var(--th-crimson-light); color: var(--th-crimson); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+                                <svg class="th-svg-icon" style="width:36px; height:36px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                            </div>
+                            <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.5rem; margin-bottom: 10px;">Servidor Local Inaccesible</h1>
+                            <div style="background:var(--th-bg-main); border:1px solid var(--th-border-warm); padding:8px 14px; border-radius:8px; display:inline-block; font-family:monospace; color:var(--th-crimson); font-weight:bold; margin-bottom:14px;">
+                                ${this.escapeHtml(targetUrl)}
+                            </div>
+                            <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px; color: var(--th-text-sub);">
+                                No se pudo establecer conexión con el puerto local especificado.<br>
+                                Asegúrate de tener encendido tu servidor de desarrollo en la terminal<br>
+                                (ej: <code>npm run dev</code>, <code>python -m http.server 8080</code>, etc.).
+                            </p>
+                            <div style="display: flex; gap: 12px; justify-content: center;">
+                                <button class="gx-btn-go" onclick="GensokyoApp.reloadPage()">Reintentar Conexión</button>
+                                <button class="gx-btn-go" style="background: var(--th-bg-main); border: 1px solid var(--th-border-warm); color: var(--th-text-main);" onclick="GensokyoApp.navigate('gensokyo://home')">Volver al Inicio</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
             return;
         }
 
-        if (this.userDomains[path]) {
-            const userSite = this.userDomains[path];
-            viewport.innerHTML = `
-                <div class="th-card">
-                    <div class="th-card-header">
-                        <h1 class="th-card-title">${this.escapeHtml(userSite.title)}</h1>
-                        <span class="th-badge">Dominio de Usuario • ${this.escapeHtml(userSite.suffix || '.blog')}</span>
+        // RESOLUCIÓN DE RUTAS MEDIANTE CAPA API DESACOPLADA (EDGE TO EDGE)
+        const routeInfo = this.resolveDomainRoute(path);
+
+        if (routeInfo) {
+            if (routeInfo.isPrivateBlocked) {
+                viewport.classList.add('full-width');
+                if (wrapperEl) wrapperEl.classList.add('full-bleed');
+
+                viewport.innerHTML = `
+                    <div style="width: 100%; min-height: calc(100vh - 110px); margin: 0; background: var(--th-bg-main); display: flex; flex-direction: column; align-items: center;">
+                        <!-- BANNER PANORÁMICO DE ANCHO COMPLETO (OPCIÓN B) -->
+                        <div style="width: 100%; height: 240px; background: linear-gradient(180deg, #1c0308 0%, #3d0816 100%); border-bottom: 3px solid var(--th-crimson); position: relative; overflow: hidden;">
+                            <svg viewBox="0 0 800 240" style="width: 100%; height: 100%; display: block;" preserveAspectRatio="xMidYMid slice">
+                                <defs>
+                                    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" stop-color="#1c0308" />
+                                        <stop offset="60%" stop-color="#3d0816" />
+                                        <stop offset="100%" stop-color="#140206" />
+                                    </linearGradient>
+                                </defs>
+                                <rect width="800" height="240" fill="url(#skyGrad)" />
+
+                                <!-- Mansión Escarlata en el Centro -->
+                                <path d="M 370 140 L 370 50 L 400 20 L 430 50 L 430 140 Z" fill="#180208" opacity="0.9" />
+                                <polygon points="400,8 408,20 392,20" fill="#a61b32" opacity="0.85" />
+                                <rect x="396" y="55" width="8" height="18" rx="4" fill="#ffd700" opacity="0.85" />
+                                <rect x="396" y="85" width="8" height="18" rx="4" fill="#ffd700" opacity="0.7" />
+
+                                <path d="M 280 150 L 280 75 L 300 50 L 320 75 L 320 150 Z" fill="#140206" opacity="0.85" />
+                                <polygon points="300,35 307,50 293,50" fill="#a61b32" opacity="0.75" />
+                                <rect x="296" y="80" width="8" height="15" rx="4" fill="#ffd700" opacity="0.7" />
+
+                                <path d="M 480 150 L 480 75 L 500 50 L 520 75 L 520 150 Z" fill="#140206" opacity="0.85" />
+                                <polygon points="500,35 507,50 493,50" fill="#a61b32" opacity="0.75" />
+                                <rect x="496" y="80" width="8" height="15" rx="4" fill="#ffd700" opacity="0.7" />
+
+                                <!-- Portones de Hierro Forjado Escarlata Panorámico -->
+                                <rect x="20" y="30" width="14" height="190" fill="#0d0104" />
+                                <rect x="766" y="30" width="14" height="190" fill="#0d0104" />
+                                <path d="M 30 50 Q 400 10 770 50 L 770 220 L 30 220 Z" fill="none" stroke="#a61b32" stroke-width="4.5" />
+
+                                <line x1="60" y1="52" x2="60" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="90" y1="48" x2="90" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="120" y1="44" x2="120" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="150" y1="40" x2="150" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="180" y1="36" x2="180" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="210" y1="33" x2="210" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="240" y1="30" x2="240" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="270" y1="28" x2="270" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="300" y1="26" x2="300" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="330" y1="25" x2="330" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="360" y1="25" x2="360" y2="220" stroke="#a61b32" stroke-width="2" />
+
+                                <line x1="440" y1="25" x2="440" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="470" y1="25" x2="470" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="500" y1="26" x2="500" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="530" y1="28" x2="530" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="560" y1="30" x2="560" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="590" y1="33" x2="590" y2="220" stroke="#a61b32" stroke-width="2" stroke-dasharray="0" />
+                                <line x1="620" y1="36" x2="620" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="650" y1="40" x2="650" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="680" y1="44" x2="680" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="710" y1="48" x2="710" y2="220" stroke="#a61b32" stroke-width="2" />
+                                <line x1="740" y1="52" x2="740" y2="220" stroke="#a61b32" stroke-width="2" />
+
+                                <circle cx="27" cy="30" r="6" fill="#ffd700" />
+                                <circle cx="773" cy="30" r="6" fill="#ffd700" />
+
+                                <!-- Hong Meiling en el Centro -->
+                                <ellipse cx="400" cy="216" rx="35" ry="6" fill="rgba(0,0,0,0.65)" />
+                                <ellipse cx="392" cy="214" rx="7" ry="3.5" fill="#0d0104" />
+                                <ellipse cx="408" cy="214" rx="7" ry="3.5" fill="#0d0104" />
+
+                                <path d="M 380 128 Q 368 150 372 208 Q 400 210 428 208 Q 432 150 420 128 Z" fill="#800f2f" />
+                                <path d="M 382 128 Q 372 152 374 206 Q 400 208 426 206 Q 428 152 418 128 Z" fill="#c1121f" />
+
+                                <path d="M 386 152 L 414 152 L 422 212 L 378 212 Z" fill="#2d6a4f" />
+                                <path d="M 392 152 L 408 152 L 410 212 L 390 212 Z" fill="#40916c" />
+                                <path d="M 400 175 L 416 212 L 408 212 Z" fill="#ffffff" />
+
+                                <path d="M 385 155 L 370 178" stroke="#2d6a4f" stroke-width="7" stroke-linecap="round" />
+                                <circle cx="368" cy="180" r="4.5" fill="#ffdfd3" />
+
+                                <path d="M 415 155 L 430 178" stroke="#2d6a4f" stroke-width="7" stroke-linecap="round" />
+                                <circle cx="432" cy="180" r="4.5" fill="#ffdfd3" />
+
+                                <path d="M 384 136 Q 376 158 378 180 L 383 180 Q 385 158 388 136 Z" fill="#a61b32" />
+                                <polygon points="374,178 384,178 379,184" fill="#0d0104" />
+                                <polygon points="374,184 384,184 379,178" fill="#0d0104" />
+
+                                <path d="M 416 136 Q 424 158 422 180 L 417 180 Q 415 158 412 136 Z" fill="#a61b32" />
+                                <polygon points="416,178 426,178 421,184" fill="#0d0104" />
+                                <polygon points="416,184 426,184 421,178" fill="#0d0104" />
+
+                                <circle cx="400" cy="138" r="16" fill="#ffdfd3" />
+                                <path d="M 384 128 L 390 136 L 396 129 L 402 136 L 408 129 L 414 136 L 416 128 Z" fill="#c1121f" />
+                                <circle cx="393" cy="137" r="2.2" fill="#1d3557" />
+                                <circle cx="407" cy="137" r="2.2" fill="#1d3557" />
+                                <path d="M 396 143 Q 400 147 404 143" stroke="#b7094c" stroke-width="1.5" fill="none" stroke-linecap="round" />
+
+                                <path d="M 380 130 Q 400 115 420 130 Q 400 124 380 130 Z" fill="#2d6a4f" />
+                                <polygon points="400,118 402,122 406,122 403,124 404,128 400,126 396,128 397,124 394,122 398,122" fill="#ffd700" />
+                            </svg>
+                        </div>
+
+                        <!-- CONTENIDO DE TEXTO Y BOTÓN SOBRE LIENZO CLARO -->
+                        <div style="padding: 30px 24px; text-align: center; max-width: 600px;">
+                            <div style="display: inline-block; background: var(--th-crimson); color: #ffffff; padding: 6px 18px; border-radius: 20px; font-family: var(--font-heading); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(166, 27, 50, 0.3);">
+                                Spell Card: Web-Sign ["Bloqueo por Privacidad"]
+                            </div>
+                            <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.8rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Dominio Privado</h1>
+                            <p style="font-size: 1.15rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 24px;">
+                                Este lugar está siendo bloqueado por una poderosa barrera desconocida.
+                            </p>
+                            <button class="gx-btn-go" style="padding: 12px 28px; font-size: 1rem;" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
+                        </div>
                     </div>
-                    <div style="font-size: 0.88rem; color: var(--th-crimson); font-weight:700; margin-bottom: 16px;">
-                        Creador (Gensokyo ID): ${this.escapeHtml(userSite.author || this.passport.username)} • Publicado en GensokyoNet
-                    </div>
-                    <div class="user-site-body" style="font-size: 1rem; line-height: 1.6;">
-                        ${userSite.htmlContent}
-                    </div>
-                </div>
-            `;
-            return;
+                `;
+                return;
+            }
+
+            if (routeInfo.isSeed) {
+                viewport.innerHTML = routeInfo.htmlContent;
+                return;
+            }
+
+            if (routeInfo.isUserSite) {
+                if (routeInfo.isEmptySite) {
+                    viewport.classList.remove('full-width');
+                    if (wrapperEl) wrapperEl.classList.remove('full-bleed');
+
+                    viewport.innerHTML = `
+                        <div class="th-card" style="max-width: 620px; margin: 40px auto; text-align: center; padding: 32px 28px; border: 2px solid var(--th-gold); background: linear-gradient(135deg, var(--th-bg-card) 0%, var(--th-bg-main) 100%); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);">
+                            <div style="width: 90px; height: 90px; margin: 0 auto 20px auto; background: radial-gradient(circle, var(--th-gold-light) 0%, rgba(212,160,23,0.05) 70%); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--th-gold);">
+                                <svg style="width:48px; height:48px; color:var(--th-gold);" viewBox="0 0 24 24"><path fill="currentColor" d="M22.7 19l-9.1-16c-.5-.8-1.7-.8-2.2 0L2.3 19c-.5.8.1 1.9 1.1 1.9h18.2c1 0 1.6-1.1 1.1-1.9zM12 18c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-4h-2v-4h2v4z"/></svg>
+                            </div>
+                            <div style="display: inline-block; background: var(--th-gold); color: #ffffff; padding: 4px 14px; border-radius: 20px; font-family: var(--font-heading); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(212, 160, 23, 0.3);">
+                                Spell Card: Site-Sign ["Dominio en Construcción"]
+                            </div>
+                            <h2 class="th-card-title" style="color: var(--th-crimson); margin-bottom: 12px; font-size: 1.5rem; font-family: var(--font-heading);">Lugar en construcción</h2>
+                            <p style="font-size: 1.05rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 24px; max-width: 480px; margin-left: auto; margin-right: auto;">
+                                El titular de este dominio aún no ha empezado a construir. Ten paciencia.
+                            </p>
+                            <button class="gx-btn-go" style="padding: 10px 24px; font-size: 0.92rem;" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const escapedContent = this.escapeHtml(routeInfo.htmlContent);
+
+                viewport.innerHTML = `
+                    <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms" srcdoc="${escapedContent}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
+                `;
+                return;
+            }
         }
 
         viewport.innerHTML = `
@@ -253,61 +562,66 @@ Object.assign(GensokyoApp, {
 
                 <div class="gx-search-box-wrap">
                     <div class="gx-search-box">
-                        <input type="text" id="gx-home-search" class="gx-search-input" placeholder="Buscar en la red (ej: noticias, templo, marisa, bad apple)..." onkeypress="if(event.key==='Enter'){ GensokyoApp.submitHomeSearch(); }">
+                        <input type="text" id="gx-home-search" class="gx-search-input" placeholder="Buscar en la red (ej: noticias, templo, marisa, bad apple, localhost:3000)..." onkeypress="if(event.key==='Enter'){ GensokyoApp.submitHomeSearch(); }">
                         <button class="gx-search-btn" onclick="GensokyoApp.submitHomeSearch()">Buscar</button>
                     </div>
                 </div>
 
                 <div class="gx-speed-dial-grid">
                     <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://bunbunmaru.news')">
-                        <div class="dial-icon-wrap">
+                        <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
                             <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
                         </div>
-                        <div class="dial-title">Bunbunmaru</div>
-                        <div class="dial-sub">Diario de Aya Shameimaru</div>
+                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">BUNBUNMARU</h3>
+                        <p style="font-size:0.8rem; color:var(--th-text-sub);">Diario de Aya Shameimaru</p>
                     </div>
 
                     <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://reimu.shrine')">
-                        <div class="dial-icon-wrap">
-                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2L2 12h3v8h6v-6h2v6h6v-8h3L12 2z"/></svg>
+                        <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
+                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
                         </div>
-                        <div class="dial-title">reimu.shrine</div>
-                        <div class="dial-sub">Templo Hakurei</div>
-                    </div>
-
-                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://register')">
-                        <div class="dial-icon-wrap">
-                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>
-                        </div>
-                        <div class="dial-title">Reclamar Dominio</div>
-                        <div class="dial-sub">Obtén tu dirección gratis</div>
+                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">REIMU.SHRINE</h3>
+                        <p style="font-size:0.8rem; color:var(--th-text-sub);">Templo Hakurei</p>
                     </div>
 
                     <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://builder')">
-                        <div class="dial-icon-wrap">
+                        <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
                             <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                         </div>
-                        <div class="dial-title">Creador Web</div>
-                        <div class="dial-sub">Escribe tu propio rincón</div>
+                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">CREADOR WEB</h3>
+                        <p style="font-size:0.8rem; color:var(--th-text-sub);">Escribe tu propio rincón</p>
+                    </div>
+
+                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://localhost:8080')">
+                        <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
+                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M4 6h16v12H4zm2 2v8h12V8zm2 2h8v4H8z"/></svg>
+                        </div>
+                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">DEV LOCALHOST</h3>
+                        <p style="font-size:0.8rem; color:var(--th-text-sub);">Probar Servidor Local</p>
                     </div>
                 </div>
             </div>
         `;
     },
 
-    renderHakureiBarrier(externalUrl) {
+    renderHakureiBarrier(externalDomain) {
         const viewport = document.getElementById('th-viewport');
         if (!viewport) return;
 
         viewport.innerHTML = `
-            <div class="th-card" style="max-width: 650px; margin: 40px auto; text-align: center; border-color: var(--th-crimson);">
-                <h2 class="th-card-title" style="margin-bottom: 10px;">Paz sobre la Barrera Hakurei</h2>
-                <div class="gx-address-bar" style="max-width: 400px; margin: 15px auto; justify-content: center;">${this.escapeHtml(externalUrl)}</div>
-                <p style="line-height: 1.6; margin-bottom: 24px;">
-                    <strong>Acceso denegado.</strong> La Barrera Hakurei impide las conexiones hacia el <em>Mundo Exterior</em>.<br>
-                    GensokyoNet es un ecosistema exclusivo para la comunidad.
+            <div class="th-card" style="max-width: 650px; margin: 30px auto; text-align: center;">
+                <div style="width: 70px; height: 70px; background: var(--th-crimson-light); color: var(--th-crimson); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+                    <svg class="th-svg-icon" style="width:36px; height:36px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                </div>
+                <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.5rem; margin-bottom: 10px;">Barrera Hakurei Impenetrable</h1>
+                <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px;">
+                    Estás intentando salir de la intranet <strong>GensokyoNet</strong> hacia la web externa (<strong>${this.escapeHtml(externalDomain)}</strong>).<br>
+                    La Gran Barrera Hakurei protege esta red doujin contra rastreadores y anuncios del mundo exterior.
                 </p>
-                <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Regresar a Inicio</button>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
+                    <a href="https://${this.escapeHtml(externalDomain)}" target="_blank" rel="noopener noreferrer" class="gx-btn-go" style="background: var(--th-bg-main); border: 1px solid var(--th-border-warm); color: var(--th-text-main); text-decoration: none;">Cruzar Barrera Bajo Tu Propio Riesgo ➔</a>
+                </div>
             </div>
         `;
     }
