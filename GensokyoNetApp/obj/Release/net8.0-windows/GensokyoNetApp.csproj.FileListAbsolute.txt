@@ -43,3 +43,8 @@ C:\Users\IK\Documents\touhou browser\GensokyoNetApp\bin\Release\net8.0-windows\w
 C:\Users\IK\Documents\touhou browser\GensokyoNetApp\bin\Release\net8.0-windows\wwwroot\styles\search-serp.css
 C:\Users\IK\Documents\touhou browser\GensokyoNetApp\bin\Release\net8.0-windows\wwwroot\styles\status-modal.css
 C:\Users\IK\Documents\touhou browser\GensokyoNetApp\bin\Release\net8.0-windows\wwwroot\styles\theme-base.css
+C:\Users\IK\Documents\touhou browser\GensokyoNetApp\bin\Release\net8.0-windows\wwwroot\assets\meiling_guard.jpg
+C:\Users\IK\Documents\touhou browser\GensokyoNetApp\bin\Release\net8.0-windows\wwwroot\assets\yukari_boundary.jpg
+C:\Users\IK\Documents\touhou browser\GensokyoNetApp\bin\Release\net8.0-windows\wwwroot\assets\yukari_construction.png
+C:\Users\IK\Documents\touhou browser\GensokyoNetApp\bin\Release\net8.0-windows\wwwroot\styles\auth-modals.css
+C:\Users\IK\Documents\touhou browser\GensokyoNetApp\obj\Release\net8.0-windows\GensokyoNetApp.sourcelink.json

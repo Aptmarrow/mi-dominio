@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GensokyoNet - Exact Google SERP Layout & Header Styles
+   GensokyoNet - Exact Google SERP Layout & Search Results Styles
    ========================================================================== */
 
 /* Top Google SERP Header */
@@ -66,6 +66,8 @@
     cursor: pointer;
     padding: 0 8px;
     opacity: 0.7;
+    display: flex;
+    align-items: center;
 }
 
 .serp-clear-btn:hover {
@@ -91,19 +93,24 @@
     align-items: center;
 }
 
+/* User profile group & icons */
 .serp-user-profile-group {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
     margin-left: auto;
 }
 
 .serp-icon-btn {
-    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
     color: var(--th-text-sub);
     cursor: pointer;
-    padding: 6px;
-    border-radius: 50%;
+    transition: background 0.2s ease;
 }
 
 .serp-icon-btn:hover {
@@ -112,41 +119,42 @@
 }
 
 .serp-avatar-circle {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
-    background: var(--th-crimson);
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    border: 1.5px solid var(--th-border-warm);
+    overflow: hidden;
     cursor: pointer;
+    border: 1.5px solid var(--th-crimson);
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s ease;
 }
 
-/* Google SERP Subheader Tab Navigation Bar */
+.serp-avatar-circle:hover {
+    transform: scale(1.1);
+}
+
+/* Tab Bar Navigation (Todos, Imágenes, Videos, Noticias) */
 .google-serp-tab-bar {
     display: flex;
     align-items: center;
     gap: 20px;
-    border-bottom: 1.5px solid var(--th-border-warm);
-    width: 100%;
-    padding: 0 4px;
+    border-bottom: 1px solid var(--th-border-warm);
+    padding-left: 6px;
+    margin-bottom: 16px;
 }
 
 .google-tab {
     background: transparent;
     border: none;
     border-bottom: 3px solid transparent;
+    padding: 8px 4px;
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
     color: var(--th-text-sub);
-    font-family: var(--font-body);
-    font-size: 0.92rem;
-    font-weight: 500;
-    padding: 10px 4px;
     cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
+    font-weight: 600;
+    transition: all 0.2s ease;
 }
 
 .google-tab:hover {
@@ -155,8 +163,8 @@
 
 .google-tab.active {
     color: var(--th-crimson);
-    font-weight: 700;
     border-bottom-color: var(--th-crimson);
+    font-weight: 700;
 }
 
 .serp-tools-space {
@@ -164,22 +172,21 @@
 }
 
 .google-tab.tools-btn {
-    color: var(--th-text-sub);
     font-size: 0.85rem;
 }
 
-/* Results Content */
-.search-stats-banner {
+/* Stats Counter */
+.serp-stats-bar {
     font-size: 0.82rem;
     color: var(--th-text-sub);
-    margin: 14px 0 18px 0;
+    margin-bottom: 20px;
 }
 
-/* Web Search Results Cards */
+/* Web Result Cards */
 .search-results-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
     width: 100%;
 }
 
@@ -187,52 +194,48 @@
     background: var(--th-bg-card);
     border: 1.5px solid var(--th-border-warm);
     border-radius: 10px;
-    padding: 18px 22px;
-    transition: all 0.2s ease;
+    padding: 16px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .search-web-card:hover {
-    border-color: var(--th-crimson);
+    transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(166, 27, 50, 0.1);
+    border-color: var(--th-crimson);
 }
 
-.search-web-domain {
-    font-family: var(--font-heading);
-    font-size: 0.82rem;
-    color: var(--th-crimson);
+.search-web-url {
+    font-size: 0.8rem;
+    color: var(--th-gold-accent);
     font-weight: 700;
     margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
 }
 
 .search-web-title {
     font-family: var(--font-heading);
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 700;
-    color: var(--th-text-title);
-    cursor: pointer;
+    color: var(--th-crimson);
     text-decoration: none;
+    display: block;
     margin-bottom: 6px;
-    display: inline-block;
 }
 
 .search-web-title:hover {
     text-decoration: underline;
 }
 
-.search-web-snippet {
-    font-size: 0.9rem;
-    line-height: 1.5;
+.search-web-desc {
+    font-size: 0.88rem;
+    line-height: 1.45;
     color: var(--th-text-sub);
 }
 
-/* Image Search Results Grid */
+/* Images Results Grid */
 .search-images-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
     width: 100%;
 }
 
@@ -335,9 +338,6 @@
 
 .search-video-desc {
     font-size: 0.88rem;
-    color: var(--th-text-sub);
     line-height: 1.4;
-    margin-bottom: 12px;
+    color: var(--th-text-sub);
 }
-
-/* ==========================================================================

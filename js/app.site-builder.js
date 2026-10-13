@@ -142,6 +142,9 @@ Object.assign(GensokyoApp, {
 
         domObj.visibility = visibilityTag;
         this.saveUserDomains();
+        if (this.notifyRemoteDomainMutation) {
+            this.notifyRemoteDomainMutation(domainName, domObj.activeVersion || 'v1', 'visibility').catch(() => {});
+        }
 
         let label = 'Público y Listado';
         if (visibilityTag === 'unlisted') label = 'No Listado (Solo URL Directa)';
@@ -725,6 +728,9 @@ Object.assign(GensokyoApp, {
         }
 
         this.saveUserDomains();
+        if (this.notifyRemoteDomainMutation) {
+            this.notifyRemoteDomainMutation(domKey, nextVersionTag, 'deploy').catch(() => {});
+        }
         this.renderRoute('gensokyo://builder');
         this.showToastNotification(`Proyecto desplegado: Versión ${nextVersionTag} (${Object.keys(files).length} archivos).`, 'success');
     },
@@ -895,6 +901,9 @@ Object.assign(GensokyoApp, {
         }
 
         this.saveUserDomains();
+        if (this.notifyRemoteDomainMutation) {
+            this.notifyRemoteDomainMutation(domainName, versionTag, 'rollback').catch(() => {});
+        }
         this.renderRoute('gensokyo://builder');
         this.showToastNotification(`Rollback: Dominio gensokyo://${domainName} restaurado a ${versionTag}.`, 'success');
     },

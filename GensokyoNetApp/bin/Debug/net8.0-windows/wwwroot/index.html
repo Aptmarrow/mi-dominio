@@ -3,147 +3,400 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GensokyoNet - Navegador Doujin de Touhou</title>
-    <!-- Fonts Google: Outfit, Cinzel & Noto Sans JP -->
+    <title>GensokyoNet • Navegador Doujin de Touhou</title>
+
+    <meta name="description" content="Navegador y motor de búsqueda de GensokyoNet para la comunidad de Touhou Project. Explora periódicos tengu, la barrera Hakurei y dominios doujin.">
+    <meta name="keywords" content="Touhou Project, GensokyoNet, Reimu Hakurei, Aya Shameimaru, Bunbunmaru, Hakugyokurou, Scarlet Mist">
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Noto+Sans+JP:wght@400;500;700&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="th-theme">
+<body class="theme-scarlet">
     <div id="gensokyo-app">
-        <!-- Top Window Header + Browser Tabs Bar -->
-        <header class="th-window-header">
-            <div class="th-header-left">
-                <div class="th-yinyang-logo" title="GensokyoNet Engine">
-                    <span class="yinyang-symbol">☯</span>
+        <!-- HEADER / PESTAÑAS (TABS STRIP) -->
+        <header class="gx-window-header">
+            <div class="gx-brand" title="GensokyoNet Portal">
+                <div class="gx-yinyang-logo" onclick="GensokyoApp.navigate('gensokyo://home')">
+                    <svg class="gx-yinyang-svg" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="48" fill="#a61b32" stroke="#ffffff" stroke-width="3"/>
+                        <path d="M 50,2 A 48,48 0 0,1 50,98 A 24,24 0 0,1 50,50 A 24,24 0 0,0 50,2" fill="#ffffff"/>
+                        <circle cx="50" cy="26" r="7" fill="#a61b32"/>
+                        <circle cx="50" cy="74" r="7" fill="#ffffff"/>
+                    </svg>
                 </div>
-                <span class="th-app-title">GensokyoNet <span class="th-version">v1.0</span></span>
+                <span class="th-brand-title">GensokyoNet</span>
             </div>
 
-            <!-- Dynamic Tabs Bar -->
-            <div class="th-tabs-container" id="th-tabs-bar">
-                <!-- Dynamic Tabs rendered via app.js -->
+            <!-- TAB STRIP DINÁMICO -->
+            <div id="th-tabs-bar" class="gx-tab-strip">
+                <!-- Se renderiza desde app.js -->
             </div>
 
-            <button class="th-add-tab-btn" onclick="GensokyoApp.createNewTab()" title="Abrir Nueva Pestaña">+</button>
+            <button class="gx-add-tab-btn" onclick="GensokyoApp.createNewTab('gensokyo://home')" title="Nueva Pestaña">+</button>
+
+            <!-- PILL STATUS BARRERA HAKUREI -->
+            <div class="gx-barrier-pill" onclick="GensokyoApp.showDonationModal()" title="Caja de Ofrendas Hakurei">
+                <div class="pill-progress"><div class="pill-fill" style="width: 80%;"></div></div>
+                <span class="pill-text">Barrera 100%</span>
+            </div>
         </header>
 
-        <!-- Address Bar & Navigation Controls -->
-        <nav class="th-navbar">
-            <div class="th-nav-controls">
-                <button class="th-nav-btn" onclick="GensokyoApp.navigateBack()" title="Página Anterior">◀</button>
-                <button class="th-nav-btn" onclick="GensokyoApp.navigateForward()" title="Página Siguiente">▶</button>
-                <button class="th-nav-btn" onclick="GensokyoApp.reloadPage()" title="Recargar">↻</button>
+        <!-- BARRA DE NAVEGACIÓN Y DIRECCIONES -->
+        <nav class="gx-navbar">
+            <div class="gx-nav-buttons">
+                <button class="gx-btn" onclick="GensokyoApp.navigateBack()" title="Atrás">
+                    <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <button class="gx-btn" onclick="GensokyoApp.navigateForward()" title="Adelante">
+                    <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+                </button>
+                <button class="gx-btn" onclick="GensokyoApp.reloadPage()" title="Recargar">
+                    <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                </button>
+                <button class="gx-btn gx-home-btn" onclick="GensokyoApp.navigate('gensokyo://home')" title="Página Principal">
+                    <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                    Inicio
+                </button>
             </div>
 
-            <div class="th-url-bar-container">
-                <span class="th-protocol-tag">gensokyo://</span>
-                <input type="text" id="th-url-input" class="th-url-input" placeholder="Escribe una dirección gensokyo://..." autocomplete="off" spellcheck="false">
-                <button class="th-btn-go" onclick="GensokyoApp.submitUrl()">Navegar ➔</button>
+            <div class="gx-address-bar">
+                <span id="th-url-prefix" class="gx-protocol-lock">GENSOKYO://</span>
+                <input type="text" id="th-url-input" class="gx-url-input" placeholder="Escribe un dominio (ej: bunbunmaru.news) o busca algo..." spellcheck="false">
+                <button class="gx-btn-go" onclick="GensokyoApp.submitUrl()">Ir</button>
             </div>
         </nav>
 
-        <!-- Main Body Layout: Left Sidebar + Viewport Center -->
-        <div class="th-app-body">
-            <!-- Left Sidebar Navigation -->
-            <aside class="th-sidebar">
-                <div class="sidebar-section-title">Navegación Intranet</div>
-                <button class="th-sidebar-link active" id="nav-home" onclick="GensokyoApp.navigate('gensokyo://home')">
-                    <span class="sb-icon">⛩️</span> Inicio
-                </button>
-                <button class="th-sidebar-link" id="nav-news" onclick="GensokyoApp.navigate('gensokyo://bunbunmaru.news')">
-                    <span class="sb-icon">📰</span> Bunbunmaru News
-                </button>
-                <button class="th-sidebar-link" id="nav-vault" onclick="GensokyoApp.navigate('gensokyo://fangames.vault')">
-                    <span class="sb-icon">🎮</span> Búnker de Exes
-                </button>
-                <button class="th-sidebar-link" id="nav-register" onclick="GensokyoApp.navigate('gensokyo://register')">
-                    <span class="sb-icon">🏷️</span> Reclamar Dominio
-                </button>
-                <button class="th-sidebar-link" id="nav-builder" onclick="GensokyoApp.navigate('gensokyo://builder')">
-                    <span class="sb-icon">✍️</span> Creador de Sitios
-                </button>
+        <!-- CUERPO PRINCIPAL CON BARRA LATERAL IZQUIERDA -->
+        <div class="gx-app-body">
+            <!-- BARRA LATERAL (SIDEBAR) -->
+            <aside class="gx-sidebar">
+                <div class="gx-sidebar-top">
+                    <button id="nav-home" class="gx-side-btn active" onclick="GensokyoApp.navigate('gensokyo://home')">
+                        <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                        <span class="gx-tooltip">Inicio</span>
+                    </button>
 
-                <div class="sidebar-divider"></div>
+                    <button id="nav-news" class="gx-side-btn" onclick="GensokyoApp.navigate('gensokyo://bunbunmaru.news')">
+                        <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                        <span class="gx-tooltip">Bunbunmaru News</span>
+                    </button>
 
-                <div class="sidebar-section-title">Sitios de la Comunidad</div>
-                <div class="sidebar-community-list" id="th-sidebar-community">
-                    <button class="th-sidebar-link sub" onclick="GensokyoApp.navigate('gensokyo://reimu.shrine')">⛩️ reimu.shrine</button>
-                    <button class="th-sidebar-link sub" onclick="GensokyoApp.navigate('gensokyo://cirno.blog')">❄️ cirno.blog</button>
-                    <button class="th-sidebar-link sub" onclick="GensokyoApp.navigate('gensokyo://marisa.magic')">🧹 marisa.magic</button>
+                    <button id="nav-register" class="gx-side-btn" onclick="GensokyoApp.navigate('gensokyo://register')">
+                        <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>
+                        <span class="gx-tooltip">Reclamar Dominio</span>
+                    </button>
+
+                    <button id="nav-builder" class="gx-side-btn" onclick="GensokyoApp.navigate('gensokyo://builder')">
+                        <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                        <span class="gx-tooltip">Creador Web</span>
+                    </button>
+
+                    <!-- Pasaporte de Gensokyo (Foto Nameless Youkai) -->
+                    <button class="gx-side-btn" onclick="GensokyoApp.showPassportModal()" style="padding:0; overflow:hidden;">
+                        <div id="sidebar-passport-avatar" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
+                            <img src="assets/nameless_avatar.png" style="width:26px; height:26px; object-fit:cover; border-radius:50%;" alt="Nameless Youkai">
+                        </div>
+                        <span class="gx-tooltip">Pasaporte de Gensokyo</span>
+                    </button>
+
+                    <!-- Selector de Estilos Touhou -->
+                    <button class="gx-side-btn" onclick="GensokyoApp.showThemeModal()">
+                        <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61.43.53 1.03.89 1.7.89 1.24 0 2.25-1.01 2.25-2.25 0-.46-.14-.88-.38-1.24-.31-.46-.5-.101-.5-1.51 0-1.38 1.12-2.5 2.5-2.5h2.88c1.38 0 2.5-1.12 2.5-2.5 0-3.04-2.46-5.5-5.5-5.5z"/></svg>
+                        <span class="gx-tooltip">Estilos Touhou</span>
+                    </button>
                 </div>
 
-                <!-- Footer del Sidebar: Meta de Donación de la Barrera -->
-                <div class="th-sidebar-barrier-card">
-                    <div class="sbar-title">⛩️ Barrera Hakurei</div>
-                    <div class="barrier-progress-bg">
-                        <div class="barrier-progress-fill" style="width: 25%;"></div>
-                    </div>
-                    <div class="sbar-values">
-                        <span class="val-current">$4.25</span> / <span class="val-target">$17.00</span>
-                    </div>
-                    <button class="th-btn-donate-sm" onclick="GensokyoApp.showDonationModal()">Donar 🌸</button>
+                <div class="gx-sidebar-bottom">
+                    <button class="gx-side-btn" onclick="GensokyoApp.showDonationModal()">
+                        <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                        <span class="gx-tooltip">Caja Hakurei</span>
+                    </button>
                 </div>
             </aside>
 
-            <!-- Main Viewport Area -->
-            <main class="th-viewport-wrapper">
-                <div id="th-viewport" class="th-viewport">
-                    <!-- Clean Centered Home Screen or Active Tab Page rendered here -->
+            <!-- VIEWPORT DEL NAVEGADOR -->
+            <main class="gx-viewport-wrapper">
+                <div id="th-viewport" class="gx-viewport">
+                    <!-- Se carga dinámicamente -->
                 </div>
             </main>
         </div>
 
-        <!-- Footer Status Bar -->
-        <footer class="th-statusbar">
-            <div class="th-status-left">
-                <span class="status-indicator online"></span>
-                <span id="th-status-text">Conectado a GensokyoNet API • espinoza.engineer</span>
-            </div>
-            <div class="th-status-right">
-                <span id="th-domain-count">Dominios Activos: 0</span>
-            </div>
+        <!-- BARRA DE ESTADO INFERIOR -->
+        <footer class="gx-statusbar">
+            <div><span class="status-indicator online"></span> Conectado a la Red Intranet GensokyoNet</div>
+            <div id="th-status-text">GensokyoNet • Estilo Scarlet Mist (TH06 Modo Pergamino)</div>
+            <div id="th-domain-count">Dominios Activos: 2</div>
         </footer>
+    </div>
 
-        <!-- Modal de Donaciones -->
-        <div id="th-donation-modal" class="th-modal-overlay hidden">
-            <div class="th-modal-card">
-                <div class="th-modal-header">
-                    <h2>⛩️ Caja de Ofrendas del Templo Hakurei</h2>
-                    <button class="th-modal-close" onclick="GensokyoApp.hideDonationModal()">✕</button>
+    <!-- MODAL PASAPORTE DE GENSOKYO -->
+    <div id="th-passport-modal" class="th-modal-overlay hidden">
+        <div class="th-modal-card" style="max-width: 520px;">
+            <div class="th-modal-header">
+                <h2>PASAPORTE DE GENSOKYO • IDENTIDAD CENTRAL</h2>
+                <button class="th-modal-close" onclick="GensokyoApp.hidePassportModal()">✕</button>
+            </div>
+            <div class="th-modal-body">
+                <!-- Input Oculto para Subir Foto de la PC -->
+                <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" onchange="GensokyoApp.handleAvatarFileSelected(event)">
+
+                <!-- Card Superior de Perfil -->
+                <div style="background:var(--th-bg-main); border:1.5px solid var(--th-border-warm); border-radius:12px; padding:16px 20px; margin-bottom:16px; display:flex; align-items:center; gap:16px; position:relative;">
+                    
+                    <!-- Avatar Circular con Hover -->
+                    <div style="position:relative; width:58px; height:58px; flex-shrink:0; cursor:pointer;" onclick="GensokyoApp.triggerAvatarUpload()" title="Cambiar foto de perfil desde tu PC">
+                        <img id="passport-modal-avatar" src="assets/nameless_avatar.png" style="width:58px; height:58px; border-radius:50%; object-fit:cover; border:2px solid var(--th-crimson); display:block;" alt="Nameless Youkai Avatar">
+                        
+                        <!-- Overlay en Hover -->
+                        <div class="passport-avatar-hover-overlay">
+                            <svg style="width:24px; height:24px; fill:#ffffff;" viewBox="0 0 24 24">
+                                <path d="M4 4h3l2-2h6l2 2h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2m8 3a5 5 0 0 0-5 5a5 5 0 0 0 5 5a5 5 0 0 0 5-5a5 5 0 0 0-5-5m0 2a3 3 0 0 1 3 3a3 3 0 0 1-3 3a3 3 0 0 1-3-3a3 3 0 0 1 3-3Z"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Datos del Usuario -->
+                    <div style="flex:1;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span id="passport-display-name" style="font-family:var(--font-heading); font-size:1.25rem; font-weight:700; color:var(--th-crimson); text-transform:uppercase; letter-spacing:0.5px;">NAMELESS YOUKAI</span>
+                            <span id="passport-display-id" style="font-size:0.75rem; background:var(--th-crimson-light); color:var(--th-crimson); padding:2px 8px; border-radius:10px; font-weight:700;">ID#0000</span>
+                        </div>
+                        <div id="passport-status-badge" style="font-size:0.85rem; font-weight:700; color:var(--th-crimson); margin-top:2px;">Cuenta Sin Registrar</div>
+                    </div>
                 </div>
-                <div class="th-modal-body">
-                    <p class="th-modal-intro">
-                        Mantené viva la red <strong>GensokyoNet</strong>. El objetivo es cubrir el costo del dominio anual <code>espinoza.engineer</code> ($17 USD) para que el servidor y los dominios de la comunidad sigan online.
-                    </p>
 
-                    <div class="th-donation-progress-card">
-                        <div class="progress-title">Estado de la Meta 2026</div>
-                        <div class="barrier-progress-bg big">
-                            <div class="barrier-progress-fill" style="width: 25%;"></div>
-                        </div>
-                        <div class="progress-stats">
-                            <span>Recaudado: <strong>$4.25 USD</strong></span>
-                            <span>Meta Anual: <strong>$17.00 USD</strong></span>
-                        </div>
-                    </div>
+                <!-- Botonera Principales de Sesión -->
+                <div id="passport-session-buttons" style="display:flex; gap:12px; margin-bottom:18px;">
+                    <!-- Generado dinámicamente desde app.js -->
+                </div>
 
-                    <div class="th-donation-options">
-                        <a href="https://ko-fi.com" target="_blank" class="th-donate-link kofi">
-                            <span>☕ Enviar un Ko-fi ($1 - $3 USD)</span>
-                        </a>
-                        <a href="https://cafecito.app" target="_blank" class="th-donate-link cafecito">
-                            <span>🇦🇷 Enviar un Cafecito (Argentina)</span>
-                        </a>
+                <!-- Mis Dominios Registrados -->
+                <div style="margin-bottom:16px;">
+                    <h3 style="font-family:var(--font-heading); font-size:0.95rem; color:var(--th-crimson); margin-bottom:6px;">MIS DOMINIOS REGISTRADOS</h3>
+                    <div id="passport-domain-list">
+                        <!-- Carga dinámicamente -->
                     </div>
+                </div>
+
+                <!-- API Token OAuth (Gensokyo ID) -->
+                <div style="background:var(--th-bg-main); border:1.5px solid var(--th-border-warm); border-radius:10px; padding:14px 16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-family:var(--font-heading); font-size:0.88rem; font-weight:700; color:var(--th-crimson);">API Token OAuth (Gensokyo ID)</span>
+                        <button class="gx-btn-go" style="padding:4px 12px; font-size:0.75rem; background:var(--th-crimson); border-radius:6px;" onclick="GensokyoApp.copyOAuthToken()">COPIAR TOKEN</button>
+                    </div>
+                    <code id="passport-oauth-code" style="display:block; font-size:0.78rem; color:var(--th-text-sub); word-break:break-all; background:var(--th-bg-card); padding:8px 12px; border-radius:6px; border:1px solid var(--th-border-warm);">gx_live_token_0000_nameless_youkai_key</code>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- MODAL DE REGISTRO DE CUENTA CON BOTÓN OJO DE YUKARI EN CONTRASEÑA -->
+    <div id="th-register-modal" class="th-modal-overlay hidden">
+        <div class="th-modal-card" style="max-width: 450px;">
+            <div class="th-modal-header">
+                <h2>Registrar Cuenta • Pasaporte de Gensokyo</h2>
+                <button class="th-modal-close" onclick="GensokyoApp.hideRegisterModal()">✕</button>
+            </div>
+            <div class="th-modal-body" style="padding: 20px;">
+                <div id="register-error-banner" class="th-form-error-banner"></div>
+                
+                <form onsubmit="event.preventDefault(); GensokyoApp.submitRegisterForm();">
+                    <div class="th-form-group">
+                        <label class="th-form-label" for="reg-username-input">Nombre de Usuario:</label>
+                        <input type="text" id="reg-username-input" class="th-form-input" placeholder="Ej: Cirno, Marisa..." required spellcheck="false">
+                        <div class="th-form-help">Tu apodo principal en la intranet de GensokyoNet.</div>
+                    </div>
+
+                    <!-- Contraseña con Toggle de Ojo de Yukari -->
+                    <div class="th-form-group">
+                        <label class="th-form-label" for="reg-password-input">Contraseña Protegida:</label>
+                        <div class="th-input-password-wrapper">
+                            <input type="password" id="reg-password-input" class="th-form-input" placeholder="Mínimo 8 caracteres" required>
+                            <button type="button" class="yukari-eye-btn" onclick="GensokyoApp.togglePasswordVisibility('reg-password-input', this)" title="Brecha de Yukari: Ver/Ocultar Contraseña">
+                                <!-- Ojo Cerrado (Reposo) -->
+                                <svg class="yukari-eye-svg closed" viewBox="0 0 24 24">
+                                    <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 10a12.5 12.5 0 0 0 18 0M6.5 12.5L5 15.5M12 13.5v3.5M17.5 12.5l1.5 3"/>
+                                </svg>
+                                <!-- Ojo de Yukari Abierto (Iris Rojo Místico) -->
+                                <svg class="yukari-eye-svg open hidden" viewBox="0 0 24 24">
+                                    <path fill="#ffffff" stroke="var(--th-crimson)" stroke-width="1.8" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+                                    <circle cx="12" cy="12" r="4.5" fill="#a61b32"/>
+                                    <circle cx="12" cy="12" r="2" fill="#500010"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="th-form-help">Debe cumplir con el estándar de mínimo 8 caracteres.</div>
+                    </div>
+
+                    <!-- Repetir Contraseña con Toggle de Ojo de Yukari -->
+                    <div class="th-form-group">
+                        <label class="th-form-label" for="reg-confirm-password-input">Repetir Contraseña:</label>
+                        <div class="th-input-password-wrapper">
+                            <input type="password" id="reg-confirm-password-input" class="th-form-input" placeholder="Reingresa tu contraseña" required>
+                            <button type="button" class="yukari-eye-btn" onclick="GensokyoApp.togglePasswordVisibility('reg-confirm-password-input', this)" title="Brecha de Yukari: Ver/Ocultar Contraseña">
+                                <!-- Ojo Cerrado (Reposo) -->
+                                <svg class="yukari-eye-svg closed" viewBox="0 0 24 24">
+                                    <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 10a12.5 12.5 0 0 0 18 0M6.5 12.5L5 15.5M12 13.5v3.5M17.5 12.5l1.5 3"/>
+                                </svg>
+                                <!-- Ojo de Yukari Abierto (Iris Rojo Místico) -->
+                                <svg class="yukari-eye-svg open hidden" viewBox="0 0 24 24">
+                                    <path fill="#ffffff" stroke="var(--th-crimson)" stroke-width="1.8" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+                                    <circle cx="12" cy="12" r="4.5" fill="#a61b32"/>
+                                    <circle cx="12" cy="12" r="2" fill="#500010"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="th-form-help">Ingresa exactamente la misma contraseña.</div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button type="submit" class="gx-btn-go" style="flex:1; padding: 10px 16px; font-size: 0.9rem;">Crear Cuenta</button>
+                        <button type="button" class="gx-btn-go" style="background: var(--th-bg-main); border: 1.5px solid var(--th-border-warm); color: var(--th-text-main); padding: 10px 16px; font-size: 0.9rem;" onclick="GensokyoApp.hideRegisterModal()">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE INICIO DE SESIÓN -->
+    <div id="th-login-modal" class="th-modal-overlay hidden">
+        <div class="th-modal-card" style="max-width: 440px;">
+            <div class="th-modal-header">
+                <h2>Iniciar Sesión • Pasaporte de Gensokyo</h2>
+                <button class="th-modal-close" onclick="GensokyoApp.hideLoginModal()">✕</button>
+            </div>
+            <div class="th-modal-body" style="padding: 20px;">
+                <div id="login-error-banner" class="th-form-error-banner"></div>
+                
+                <form onsubmit="event.preventDefault(); GensokyoApp.submitLoginForm();">
+                    <div class="th-form-group">
+                        <label class="th-form-label" for="login-username-input">Nombre de Usuario:</label>
+                        <input type="text" id="login-username-input" class="th-form-input" placeholder="Tu usuario registrado" required spellcheck="false">
+                    </div>
+
+                    <div class="th-form-group">
+                        <label class="th-form-label" for="login-password-input">Contraseña:</label>
+                        <input type="password" id="login-password-input" class="th-form-input" placeholder="Tu contraseña de 8+ caracteres" required>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button type="submit" class="gx-btn-go" style="flex:1; padding: 10px 16px; font-size: 0.9rem;">Entrar</button>
+                        <button type="button" class="gx-btn-go" style="background: var(--th-bg-main); border: 1.5px solid var(--th-border-warm); color: var(--th-text-main); padding: 10px 16px; font-size: 0.9rem;" onclick="GensokyoApp.hideLoginModal()">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICACIONES FLOTANTES -->
+    <div id="th-toast-container" class="th-toast-container"></div>
+
+    <!-- MINI MODAL DE AJUSTE / RECORTADOR DE FOTO DE PERFIL -->
+    <div id="th-avatar-crop-modal" class="th-modal-overlay hidden">
+        <div class="th-modal-card" style="max-width: 400px; text-align: center; overflow: hidden;">
+            <div class="th-modal-header">
+                <h2>Ajustar Foto de Perfil</h2>
+                <button class="th-modal-close" onclick="GensokyoApp.hideAvatarCropModal()">✕</button>
+            </div>
+            <div class="th-modal-body" style="padding: 16px;">
+                <p style="font-size: 0.85rem; color: var(--th-text-sub); margin-bottom: 10px;">Regula el zoom de tu imagen para elegir el encuadre:</p>
+                
+                <div class="avatar-crop-preview-box">
+                    <img id="avatar-crop-img" class="avatar-crop-preview-img" src="" alt="Vista previa avatar">
+                </div>
+
+                <div style="margin: 14px 0;">
+                    <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--th-crimson); margin-bottom: 6px;">Zoom / Escala:</label>
+                    <input type="range" id="crop-zoom-range" min="1" max="3" step="0.05" value="1" style="width: 80%; accent-color: var(--th-crimson);" oninput="GensokyoApp.updateCropZoom(this.value)">
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 14px;">
+                    <button class="gx-btn-go" style="padding: 9px 18px;" onclick="GensokyoApp.saveCroppedAvatar()">Guardar Foto</button>
+                    <button class="gx-btn-go" style="background: var(--th-bg-main); border: 1px solid var(--th-border-warm); color: var(--th-text-main);" onclick="GensokyoApp.hideAvatarCropModal()">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL SELECTOR DE ESTILOS Y PREFERENCIAS DE BARRERA HAKUREI -->
+    <div id="th-theme-modal" class="th-modal-overlay hidden">
+        <div class="th-modal-card" style="max-width: 500px;">
+            <div class="th-modal-header">
+                <h2>Preferencias de GensokyoNet</h2>
+                <button class="th-modal-close" onclick="GensokyoApp.hideThemeModal()">✕</button>
+            </div>
+            <div class="th-modal-body" style="padding: 20px;">
+                <h3 style="font-family: var(--font-heading); font-size: 0.95rem; color: var(--th-crimson); margin-bottom: 10px; text-transform: uppercase;">Estilo Visual de Gensokyo</h3>
+                <div class="th-theme-options-grid" style="margin-bottom: 24px;">
+                    <div id="theme-card-scarlet" class="th-theme-card active" onclick="GensokyoApp.applyTheme('scarlet')">
+                        <div class="theme-card-title">Scarlet Mist (Touhou 6)</div>
+                        <div class="theme-card-sub">Estilo Pergamino Claro con Niebla Roja de Remilia Scarlet.</div>
+                    </div>
+                    <div id="theme-card-hakugyokurou" class="th-theme-card" onclick="GensokyoApp.applyTheme('hakugyokurou')">
+                        <div class="theme-card-title">Hakugyokurou (Touhou 7)</div>
+                        <div class="theme-card-sub">Estilo Noche Oscura Mística con cerezos de Yuyuko.</div>
+                    </div>
+                </div>
+
+                <!-- POLÍTICA DE NAVEGACIÓN Y BARRERA HAKUREI -->
+                <h3 style="font-family: var(--font-heading); font-size: 0.95rem; color: var(--th-crimson); margin-bottom: 10px; text-transform: uppercase;">Política de la Barrera Hakurei</h3>
+                <div style="background: var(--th-bg-main); border: 1.5px solid var(--th-border-warm); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                    <label style="display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 700; color: var(--th-text-main); cursor: pointer;">
+                        <input type="radio" name="hakurei-policy-option" value="ask" onclick="GensokyoApp.setHakureiPolicy('ask')" style="accent-color: var(--th-crimson);">
+                        <span>Preguntar antes de cruzar la Barrera Hakurei</span>
+                    </label>
+
+                    <label style="display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 700; color: var(--th-text-main); cursor: pointer;">
+                        <input type="radio" name="hakurei-policy-option" value="auto" onclick="GensokyoApp.setHakureiPolicy('auto')" style="accent-color: var(--th-crimson);">
+                        <span>Siempre cruzar automáticamente al Mundo Exterior</span>
+                    </label>
+
+                    <label style="display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 700; color: var(--th-text-main); cursor: pointer;">
+                        <input type="radio" name="hakurei-policy-option" value="block" onclick="GensokyoApp.setHakureiPolicy('block')" style="accent-color: var(--th-crimson);">
+                        <span>Nunca permitir acceso al Mundo Exterior</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DONACIONES CAJA HAKUREI -->
+    <div id="th-donation-modal" class="th-modal-overlay hidden">
+        <div class="th-modal-card">
+            <div class="th-modal-header">
+                <h2>Caja de Ofrendas del Templo Hakurei</h2>
+                <button class="th-modal-close" onclick="GensokyoApp.hideDonationModal()">✕</button>
+            </div>
+            <div class="th-modal-body">
+                <p style="font-size: 0.95rem; line-height: 1.5; margin-bottom: 14px;">
+                    Para mantener el servidor del dominio anual activo y la Barrera Hakurei al 100%, Reimu Hakurei recolecta ofrendas para la red.
+                </p>
+                <div class="th-donation-progress-card">
+                    <div style="display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 6px; font-size: 0.85rem;">
+                        <span>Servidor Anual GensokyoNet</span>
+                        <span>$14 / $17 USD</span>
+                    </div>
+                    <div style="width: 100%; height: 8px; background: var(--th-border-warm); border-radius: 4px; overflow: hidden;">
+                        <div style="width: 82%; height: 100%; background: var(--th-crimson);"></div>
+                    </div>
+                </div>
+                <div class="th-donation-options">
+                    <a href="https://ko-fi.com" target="_blank" rel="noopener noreferrer" class="th-donate-link kofi">Donar en Ko-fi</a>
+                    <a href="https://cafecito.app" target="_blank" rel="noopener noreferrer" class="th-donate-link cafecito">Donar en Cafecito</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="seed-data.js"></script>
     <script src="app.js"></script>
+    <script src="js/app.passport.js"></script>
+    <script src="js/app.navigation.js"></script>
+    <script src="js/app.search.js"></script>
+    <script src="js/app.site-builder.js"></script>
 </body>
 </html>

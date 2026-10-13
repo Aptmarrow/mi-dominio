@@ -21,4 +21,8 @@
     </Content>
   </ItemGroup>
 
+  <Target Name="SyncWebRootAssets" BeforeTargets="Build;Publish">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\scripts\sync-wwwroot.ps1&quot;" />
+  </Target>
+
 </Project>

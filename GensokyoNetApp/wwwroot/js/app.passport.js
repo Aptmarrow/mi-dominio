@@ -292,6 +292,11 @@ Object.assign(GensokyoApp, {
     },
 
     showRegisterModal() {
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.postMessage({ action: 'openModal', modalType: 'register' });
+            return;
+        }
+
         const modal = document.getElementById('th-register-modal');
         const userIn = document.getElementById('reg-username-input');
         const passIn = document.getElementById('reg-password-input');
@@ -327,54 +332,32 @@ Object.assign(GensokyoApp, {
         this.showRegisterModal();
     },
 
-    async submitRegisterForm() {
-        const userIn = document.getElementById('reg-username-input');
-        const passIn = document.getElementById('reg-password-input');
-        const confirmPassIn = document.getElementById('reg-confirm-password-input');
-        const errBanner = document.getElementById('register-error-banner');
-
-        const cleanName = (userIn ? userIn.value : '').trim();
-        const password = (passIn ? passIn.value : '').trim();
-        const confirmPassword = (confirmPassIn ? confirmPassIn.value : '').trim();
+    async submitRegisterFromNative(payload) {
+        const cleanName = String(payload?.username || '').trim();
+        const password = String(payload?.password || '').trim();
+        const confirmPassword = String(payload?.confirmPassword || '').trim();
         const key = cleanName.toLowerCase();
 
         if (!cleanName) {
-            if (errBanner) {
-                errBanner.innerText = 'Por favor ingresa un nombre de usuario válido.';
-                errBanner.classList.add('visible');
-            }
-            return;
+            return { ok: false, message: 'Por favor ingresa un nombre de usuario válido.' };
         }
 
         if (this.accountsDB[key]) {
-            if (errBanner) {
-                errBanner.innerText = `El usuario "${cleanName}" ya está registrado. Por favor inicia sesión o elige otro nombre.`;
-                errBanner.classList.add('visible');
-            }
-            return;
+            return { ok: false, message: `El usuario "${cleanName}" ya está registrado. Por favor inicia sesión o elige otro nombre.` };
         }
 
         if (password.length < 8) {
-            if (errBanner) {
-                errBanner.innerText = 'Error: La contraseña debe tener como mínimo 8 caracteres.';
-                errBanner.classList.add('visible');
-            }
-            return;
+            return { ok: false, message: 'Error: La contraseña debe tener como mínimo 8 caracteres.' };
         }
 
         if (password !== confirmPassword) {
-            if (errBanner) {
-                errBanner.innerText = 'Error: Las contraseñas no coinciden. Por favor verifica ambos campos.';
-                errBanner.classList.add('visible');
-            }
-            return;
+            return { ok: false, message: 'Error: Las contraseñas no coinciden. Por favor verifica ambos campos.' };
         }
 
         if (this.passport.userId === 'ID#0000') {
             this.passport.userId = this.generateUniqueUserId();
         }
 
-        // HASHEO CRIPTOGRÁFICO DE CONTRASEÑA (SHA-256) Y TOKEN OAUTH SEGURO
         const passwordHash = await this.hashPassword(password);
         const secureToken = this.generateSecureOAuthToken(this.passport.userId);
 
@@ -394,13 +377,41 @@ Object.assign(GensokyoApp, {
 
         this.saveAccountsDB();
         this.savePassportData();
-
-        this.hideRegisterModal();
         this.onSessionChanged();
         this.showToastNotification(`¡Cuenta de ${cleanName} (${this.passport.userId}) creada exitosamente!`, 'success');
+
+        return { ok: true, message: `Cuenta creada: ${cleanName}` };
+    },
+
+    async submitRegisterForm() {
+        const userIn = document.getElementById('reg-username-input');
+        const passIn = document.getElementById('reg-password-input');
+        const confirmPassIn = document.getElementById('reg-confirm-password-input');
+        const errBanner = document.getElementById('register-error-banner');
+
+        const result = await this.submitRegisterFromNative({
+            username: userIn ? userIn.value : '',
+            password: passIn ? passIn.value : '',
+            confirmPassword: confirmPassIn ? confirmPassIn.value : ''
+        });
+
+        if (!result.ok) {
+            if (errBanner) {
+                errBanner.innerText = result.message;
+                errBanner.classList.add('visible');
+            }
+            return;
+        }
+
+        this.hideRegisterModal();
     },
 
     showLoginModal() {
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.postMessage({ action: 'openModal', modalType: 'login' });
+            return;
+        }
+
         const modal = document.getElementById('th-login-modal');
         const userIn = document.getElementById('login-username-input');
         const passIn = document.getElementById('login-password-input');
@@ -427,38 +438,23 @@ Object.assign(GensokyoApp, {
         this.showLoginModal();
     },
 
-    async submitLoginForm() {
-        const userIn = document.getElementById('login-username-input');
-        const passIn = document.getElementById('login-password-input');
-        const errBanner = document.getElementById('login-error-banner');
-
-        const cleanName = (userIn ? userIn.value : '').trim();
-        const password = (passIn ? passIn.value : '').trim();
+    async submitLoginFromNative(payload) {
+        const cleanName = String(payload?.username || '').trim();
+        const password = String(payload?.password || '').trim();
         const key = cleanName.toLowerCase();
 
         if (!cleanName || !this.accountsDB[key]) {
-            if (errBanner) {
-                errBanner.innerText = `El usuario "${cleanName}" no está registrado. Crea una cuenta primero.`;
-                errBanner.classList.add('visible');
-            }
-            return;
+            return { ok: false, message: `El usuario "${cleanName}" no está registrado. Crea una cuenta primero.` };
         }
 
         const passwordHash = await this.hashPassword(password);
         const acc = this.accountsDB[key];
-
-        // Verificación defensiva compatible con cuentas legacy o hasheadas
         const expectedHash = acc.passwordHash || (acc.password ? await this.hashPassword(acc.password) : '');
 
         if (expectedHash !== passwordHash) {
-            if (errBanner) {
-                errBanner.innerText = 'Contraseña incorrecta. Inténtalo nuevamente.';
-                errBanner.classList.add('visible');
-            }
-            return;
+            return { ok: false, message: 'Contraseña incorrecta. Inténtalo nuevamente.' };
         }
 
-        // Migración a hash seguro si venía de texto plano
         if (!acc.passwordHash) {
             acc.passwordHash = passwordHash;
             delete acc.password;
@@ -477,9 +473,31 @@ Object.assign(GensokyoApp, {
         };
 
         this.savePassportData();
-        this.hideLoginModal();
         this.onSessionChanged();
         this.showToastNotification(`¡Bienvenido de vuelta, ${acc.username}!`, 'success');
+
+        return { ok: true, message: `Bienvenido ${acc.username}` };
+    },
+
+    async submitLoginForm() {
+        const userIn = document.getElementById('login-username-input');
+        const passIn = document.getElementById('login-password-input');
+        const errBanner = document.getElementById('login-error-banner');
+
+        const result = await this.submitLoginFromNative({
+            username: userIn ? userIn.value : '',
+            password: passIn ? passIn.value : ''
+        });
+
+        if (!result.ok) {
+            if (errBanner) {
+                errBanner.innerText = result.message;
+                errBanner.classList.add('visible');
+            }
+            return;
+        }
+
+        this.hideLoginModal();
     },
 
     handleLogout() {
