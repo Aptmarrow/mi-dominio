@@ -128,7 +128,7 @@ test.describe('GensokyoNet security regression suite', () => {
     await expect(page.getByText('Dominio Privado')).toBeVisible();
   });
 
-  test('builder rejects multi-file uploads to avoid silent asset discard', async ({ page, baseURL }) => {
+  test('builder processes multi-file uploads without discarding assets and preserves project structure', async ({ page, baseURL }) => {
     await openFresh(page, baseURL);
 
     await page.evaluate(() => {
@@ -172,17 +172,21 @@ test.describe('GensokyoNet security regression suite', () => {
       };
     });
 
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       const files = [
-        new File(['<html></html>'], 'index.html', { type: 'text/html' }),
-        new File(['body{}'], 'style.css', { type: 'text/css' }),
+        new File(['<!DOCTYPE html><html><head><link rel="stylesheet" href="style.css"></head><body><h1>Hola Alice</h1></body></html>'], 'index.html', { type: 'text/html' }),
+        new File(['body { background: red; }'], 'style.css', { type: 'text/css' }),
       ];
-      GensokyoApp.processProjectFiles(files, 'alice.blog');
+      await GensokyoApp.processProjectFiles(files, 'alice.blog');
     });
 
     const toast = await page.evaluate(() => window.__lastToast);
-    expect(toast).toContain('error:');
-    expect(toast).toContain('solo se admite 1 archivo HTML autocontenido');
+    expect(toast).toContain('success:');
+    expect(toast).toContain('Proyecto importado');
+
+    const domainData = await page.evaluate(() => GensokyoApp.userDomains['alice.blog']);
+    expect(Object.keys(domainData.files)).toHaveLength(2);
+    expect(domainData.htmlContent).toContain('background: red');
   });
 
   test('registration stores password hash and never plaintext password', async ({ page, baseURL }) => {

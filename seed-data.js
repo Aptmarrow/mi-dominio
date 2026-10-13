@@ -21,7 +21,7 @@ const GensokyoSeedData = {
                     <article class="news-article-card">
                         <div class="article-date">Noticia de Última Hora • Cerezos en Flor</div>
                         <h3 class="article-title">¿Incidentes en el Templo Hakurei?</h3>
-                        <p class="article-body">Reimu Hakurei fue vista descansando mientras el viento primaveral soplaba pétalos sobre la barrera. El periódico Bunbunmaru investiga posibles apariciones de yōkai.</p>
+                        <p class="article-body">Reimu Hakurei fue vista descansando mientras el viento primaveral soplaba pétalos sobre el jardín del templo. El periódico Bunbunmaru investiga posibles apariciones de yōkai.</p>
                     </article>
                     <article class="news-article-card">
                         <div class="article-date">Crónica de Marisa Kirisame</div>
@@ -35,7 +35,7 @@ const GensokyoSeedData = {
             title: "Templo Hakurei • 博麗神社",
             author: "Reimu Hakurei (博麗 霊夢)",
             category: "Templo",
-            snippet: "Bitácora oficial del Templo Hakurei. Estado de la Barrera Hakurei, caja de ofrendas para mantener el servidor online y té verde diario.",
+            snippet: "Bitácora oficial del Templo Hakurei. Servicios del templo, registro de dominios doujin y té verde diario.",
             content: `
                 <div class="th-card">
                     <div class="th-card-header">
@@ -44,12 +44,12 @@ const GensokyoSeedData = {
                     </div>
                     <img src="assets/gensokyo_banner.png" style="width:100%; max-height:220px; object-fit:cover; border-radius:8px; margin-bottom:16px; border:1px solid var(--th-crimson);" alt="Templo Hakurei">
                     <p style="font-size:1.05rem; line-height:1.6; margin-bottom:16px;">
-                        Bienvenido al <strong>Templo Hakurei</strong>, el límite sagrado entre Gensokyo y el Mundo Exterior. 
+                        Bienvenido al <strong>Templo Hakurei</strong>, el punto de encuentro principal de Gensokyo. 
                         Reimu Hakurei mantiene la tranquilidad de la comunidad.
                     </p>
                     <div style="background: var(--th-bg-main); padding: 16px; border-radius: 8px; border: 1px solid var(--th-border-warm);">
-                        <h3 style="color: var(--th-crimson); margin-bottom: 8px;">Estado de la Barrera: <strong>100% Estable</strong></h3>
-                        <p style="font-size: 0.9rem;">Las donaciones recaudadas apoyan el servidor anual de la red ($17 USD/año).</p>
+                        <h3 style="color: var(--th-crimson); margin-bottom: 8px;">Estado del Servidor: <strong>100% Estable</strong></h3>
+                        <p style="font-size: 0.9rem;">Servidor en línea para toda la comunidad doujin.</p>
                     </div>
                 </div>
             `

@@ -84,14 +84,18 @@ Object.assign(GensokyoApp, {
         if (!input) return;
 
         let rawVal = input.value.trim();
-        if (rawVal.startsWith('gensokyo://')) {
-            rawVal = rawVal.replace('gensokyo://', '');
+        rawVal = rawVal.replace(/^(gensokyo|outside):\/\//i, '').replace(/^https?:\/\//i, '').trim();
+
+        const isLocalhost = this.isLocalhostDomain(rawVal);
+        const isExternal = !isLocalhost && this.isExternalDomain(rawVal);
+
+        if (!isLocalhost && !isExternal && !rawVal.includes('.') && !['search', 'register', 'builder', 'home', ''].includes(rawVal)) {
+            this.navigate(`gensokyo://search?q=${encodeURIComponent(rawVal)}`);
+            return;
         }
 
-        const isLocalhost = rawVal.toLowerCase().includes('localhost') || rawVal.includes('127.0.0.1');
-
-        if (!isLocalhost && !rawVal.includes('.') && !rawVal.startsWith('search') && !rawVal.startsWith('register') && !rawVal.startsWith('builder') && !rawVal.startsWith('home')) {
-            this.navigate(`gensokyo://search?q=${encodeURIComponent(rawVal)}`);
+        if (isExternal) {
+            this.navigate(`outside://${rawVal}`);
             return;
         }
 
@@ -100,7 +104,7 @@ Object.assign(GensokyoApp, {
 
     isLocalhostDomain(pathStr) {
         if (!pathStr || typeof pathStr !== 'string') return false;
-        const clean = pathStr.replace('gensokyo://', '').trim().toLowerCase();
+        const clean = pathStr.replace(/^(gensokyo|outside):\/\//i, '').trim().toLowerCase();
         try {
             const fakeUrl = clean.startsWith('http://') || clean.startsWith('https://') ? clean : `http://${clean}`;
             const parsed = new URL(fakeUrl);
@@ -111,23 +115,78 @@ Object.assign(GensokyoApp, {
         }
     },
 
-    navigate(fullUrl) {
+    isExternalDomain(pathStr) {
+        if (!pathStr || typeof pathStr !== 'string') return false;
+        const clean = pathStr.replace(/^(gensokyo|outside):\/\//i, '').trim().toLowerCase();
+        if (this.isLocalhostDomain(clean)) return false;
+        if (clean === 'home' || clean === '' || clean === 'register' || clean === 'builder' || clean.startsWith('search')) return false;
+
+        const hasExternalTld = /\.(com|org|net|io|app|ai|edu|co|es|ar|tv|me|dev|xyz|info|us|uk)$/i.test(clean.split('/')[0].split('?')[0]);
+        const isHttp = pathStr.toLowerCase().startsWith('http://') || pathStr.toLowerCase().startsWith('https://') || pathStr.toLowerCase().startsWith('outside://');
+        return hasExternalTld || isHttp;
+    },
+
+    initViewportObserver() {
+        const viewport = document.getElementById('th-viewport');
+        if (!viewport || !window.chrome || !window.chrome.webview) return;
+
+        if (this._viewportObserver) {
+            this._viewportObserver.disconnect();
+        }
+
+        this._viewportObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const rect = entry.target.getBoundingClientRect();
+                window.chrome.webview.postMessage({
+                    action: 'viewportRectChanged',
+                    rect: {
+                        x: Math.round(rect.left),
+                        y: Math.round(rect.top),
+                        width: Math.round(rect.width),
+                        height: Math.round(rect.height)
+                    }
+                });
+            }
+        });
+        this._viewportObserver.observe(viewport);
+    },
+
+    navigate(fullUrl, forceCross = false) {
         const activeTab = this.getActiveTab();
         if (!activeTab) return;
 
         let path = fullUrl;
         if (path.startsWith('gensokyo://')) path = path.replace('gensokyo://', '');
+        if (path.startsWith('outside://')) path = path.replace('outside://', '');
         path = path.trim();
 
         const isLocalhost = this.isLocalhostDomain(path);
+        const isExternal = !isLocalhost && this.isExternalDomain(path);
 
-        if (!isLocalhost && path.includes('.') && (path.endsWith('.com') || path.endsWith('.org') || path.endsWith('.net') || path.includes('http') || path.includes('roblox') || path.includes('google'))) {
+        if (!isExternal && window.chrome && window.chrome.webview) {
+            window.chrome.webview.postMessage({ action: 'returnToIntranet' });
+        }
+
+        if (isExternal && !forceCross) {
+            const policy = this.hakureiPolicy || 'ask';
+
+            if (policy === 'block') {
+                this.renderHakureiBlocked(path);
+                this.updateUrlInput(`outside://${path}`);
+                return;
+            }
+
+            if (policy === 'auto') {
+                this.proceedCrossHakureiBarrier(path);
+                return;
+            }
+
             this.renderHakureiBarrier(path);
-            this.updateUrlInput(path);
+            this.updateUrlInput(`outside://${path}`);
             return;
         }
 
-        const normalizedUrl = `gensokyo://${path}`;
+        const normalizedUrl = isExternal ? `outside://${path}` : `gensokyo://${path}`;
         activeTab.url = normalizedUrl;
         activeTab.title = this.getTabTitleFromUrl(normalizedUrl);
 
@@ -141,16 +200,90 @@ Object.assign(GensokyoApp, {
         this.updateUrlInput(normalizedUrl);
         this.renderRoute(normalizedUrl);
         this.updateSidebarActiveState(normalizedUrl);
+        this.initViewportObserver();
+    },
+
+    proceedCrossHakureiBarrier(externalDomain) {
+        const activeTab = this.getActiveTab();
+        if (!activeTab) return;
+
+        const cleanDomain = externalDomain.replace(/^(gensokyo|outside|https?):\/\//i, '').trim();
+        const targetUrl = cleanDomain.startsWith('http://') || cleanDomain.startsWith('https://') ? cleanDomain : `https://${cleanDomain}`;
+        const normalizedUrl = `outside://${cleanDomain}`;
+
+        activeTab.url = normalizedUrl;
+        activeTab.title = cleanDomain;
+
+        if (activeTab.history[activeTab.historyIndex] !== normalizedUrl) {
+            activeTab.history = activeTab.history.slice(0, activeTab.historyIndex + 1);
+            activeTab.history.push(normalizedUrl);
+            activeTab.historyIndex = activeTab.history.length - 1;
+        }
+
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.postMessage({
+                action: 'crossHakureiBarrier',
+                url: targetUrl
+            });
+            this.renderTabsBar();
+            this.updateUrlInput(normalizedUrl);
+            this.updateSidebarActiveState(normalizedUrl);
+            return;
+        }
+
+        const wrapperEl = document.querySelector('.gx-viewport-wrapper');
+        const viewport = document.getElementById('th-viewport');
+
+        if (viewport) {
+            viewport.classList.add('full-width');
+            if (wrapperEl) wrapperEl.classList.add('full-bleed');
+
+            viewport.innerHTML = `
+                <div style="width: 100%; height: 100%; position: relative; background: #ffffff;">
+                    <div style="background: #1c0308; color: #ffffff; padding: 6px 16px; font-size: 0.82rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--th-crimson);">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #ff9800; font-weight: bold;">OUTSIDE://</span>
+                            <span style="color: #ffffff; font-family: monospace;">${this.escapeHtml(targetUrl)}</span>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="gx-btn-go" style="padding: 3px 10px; font-size: 0.75rem; background: var(--th-crimson);" onclick="window.open('${this.escapeHtml(targetUrl)}', '_blank', 'noopener,noreferrer')">Abrir en Pestaña Directa ➔</button>
+                        </div>
+                    </div>
+                    <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals" src="${this.escapeHtml(targetUrl)}" style="width:100%; height:calc(100% - 32px); border:none; background:#ffffff; display:block;"></iframe>
+                </div>
+            `;
+        }
+
+        this.renderTabsBar();
+        this.updateUrlInput(normalizedUrl);
+        this.updateSidebarActiveState(normalizedUrl);
     },
 
     updateUrlInput(url) {
+        const prefixEl = document.getElementById('th-url-prefix');
         const input = document.getElementById('th-url-input');
         if (!input) return;
-        input.value = url.replace('gensokyo://', '');
+
+        let clean = (url || '').trim();
+        clean = clean.replace(/^(gensokyo|outside):\/\//i, '').replace(/^https?:\/\//i, '').trim();
+
+        const isExternal = this.isExternalDomain(clean);
+
+        if (prefixEl) {
+            if (isExternal) {
+                prefixEl.innerText = 'OUTSIDE://';
+                prefixEl.style.color = '#e65100';
+            } else {
+                prefixEl.innerText = 'GENSOKYO://';
+                prefixEl.style.color = 'var(--th-crimson)';
+            }
+        }
+
+        input.value = clean;
     },
 
     updateSidebarActiveState(url) {
-        const clean = url.replace('gensokyo://', '').trim().toLowerCase();
+        const clean = url.replace(/^(gensokyo|outside):\/\//i, '').trim().toLowerCase();
         document.querySelectorAll('.gx-side-btn').forEach((btn) => btn.classList.remove('active'));
 
         if (clean === 'home' || clean === '') document.getElementById('nav-home')?.classList.add('active');
@@ -256,8 +389,13 @@ Object.assign(GensokyoApp, {
 
             const activeVer = userSite.activeVersion || 'v1';
             const versionObj = (userSite.versions && userSite.versions[activeVer]) ? userSite.versions[activeVer] : null;
-            const finalHtml = versionObj ? versionObj.htmlContent : userSite.htmlContent;
+            let finalHtml = versionObj ? versionObj.htmlContent : userSite.htmlContent;
             const versionsList = userSite.versions ? Object.keys(userSite.versions) : ['v1'];
+
+            const files = (versionObj && versionObj.files) || userSite.files || (this.getDomainProjectFiles ? this.getDomainProjectFiles(path) : null);
+            if (files && Object.keys(files).length > 0 && window.GensokyoBundler) {
+                finalHtml = GensokyoBundler.bundle(files);
+            }
 
             const isEmpty = this.isHtmlContentEmpty(finalHtml);
 
@@ -277,6 +415,20 @@ Object.assign(GensokyoApp, {
         }
 
         return null;
+    },
+
+    loadVirtualPage(pagePath) {
+        const activeTab = this.getActiveTab();
+        if (!activeTab) return;
+        const cleanDomain = activeTab.url.replace('gensokyo://', '').trim().toLowerCase();
+        const files = this.getDomainProjectFiles ? this.getDomainProjectFiles(cleanDomain) : null;
+        if (files && window.GensokyoBundler) {
+            const bundled = GensokyoBundler.bundle(files, pagePath);
+            const iframe = document.querySelector('iframe.user-site-iframe');
+            if (iframe) {
+                iframe.srcdoc = bundled;
+            }
+        }
     },
 
     renderRoute(fullUrl) {
@@ -487,11 +639,11 @@ Object.assign(GensokyoApp, {
                         <!-- CONTENIDO DE TEXTO Y BOTÓN SOBRE LIENZO CLARO -->
                         <div style="padding: 30px 24px; text-align: center; max-width: 600px;">
                             <div style="display: inline-block; background: var(--th-crimson); color: #ffffff; padding: 6px 18px; border-radius: 20px; font-family: var(--font-heading); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(166, 27, 50, 0.3);">
-                                Spell Card: Web-Sign ["Bloqueo por Privacidad"]
+                                Configuración de Privacidad
                             </div>
                             <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.8rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Dominio Privado</h1>
                             <p style="font-size: 1.15rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 24px;">
-                                Este lugar está siendo bloqueado por una poderosa barrera desconocida.
+                                Este sitio web está protegido y solo es accesible por su titular.
                             </p>
                             <button class="gx-btn-go" style="padding: 12px 28px; font-size: 1rem;" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
                         </div>
@@ -511,18 +663,17 @@ Object.assign(GensokyoApp, {
                     if (wrapperEl) wrapperEl.classList.remove('full-bleed');
 
                     viewport.innerHTML = `
-                        <div class="th-card" style="max-width: 620px; margin: 40px auto; text-align: center; padding: 32px 28px; border: 2px solid var(--th-gold); background: linear-gradient(135deg, var(--th-bg-card) 0%, var(--th-bg-main) 100%); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);">
-                            <div style="width: 90px; height: 90px; margin: 0 auto 20px auto; background: radial-gradient(circle, var(--th-gold-light) 0%, rgba(212,160,23,0.05) 70%); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--th-gold);">
-                                <svg style="width:48px; height:48px; color:var(--th-gold);" viewBox="0 0 24 24"><path fill="currentColor" d="M22.7 19l-9.1-16c-.5-.8-1.7-.8-2.2 0L2.3 19c-.5.8.1 1.9 1.1 1.9h18.2c1 0 1.6-1.1 1.1-1.9zM12 18c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-4h-2v-4h2v4z"/></svg>
+                        <div class="th-card" style="max-width: 600px; margin: 40px auto; text-align: center; padding: 40px 24px; border: 2px solid var(--th-gold); background: linear-gradient(135deg, var(--th-bg-card) 0%, var(--th-bg-main) 100%); border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <img src="assets/yukari_construction.png" alt="Chibi Yukari Yakumo - Lugar en Construcción" style="width: 100%; max-width: 320px; height: auto; display: block; margin: 0 auto 20px auto; filter: drop-shadow(0 8px 16px rgba(186, 104, 200, 0.25));">
+
+                            <div style="display: inline-block; background: var(--th-gold); color: #ffffff; padding: 6px 18px; border-radius: 20px; font-family: var(--font-heading); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(212, 160, 23, 0.3);">
+                                Spell Card: Boundary-Sign ["Sitio en Construcción"]
                             </div>
-                            <div style="display: inline-block; background: var(--th-gold); color: #ffffff; padding: 4px 14px; border-radius: 20px; font-family: var(--font-heading); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(212, 160, 23, 0.3);">
-                                Spell Card: Site-Sign ["Dominio en Construcción"]
-                            </div>
-                            <h2 class="th-card-title" style="color: var(--th-crimson); margin-bottom: 12px; font-size: 1.5rem; font-family: var(--font-heading);">Lugar en construcción</h2>
-                            <p style="font-size: 1.05rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 24px; max-width: 480px; margin-left: auto; margin-right: auto;">
+                            <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.8rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Lugar en construcción</h1>
+                            <p style="font-size: 1.15rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 24px; max-width: 500px;">
                                 El titular de este dominio aún no ha empezado a construir. Ten paciencia.
                             </p>
-                            <button class="gx-btn-go" style="padding: 10px 24px; font-size: 0.92rem;" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
+                            <button class="gx-btn-go" style="padding: 12px 28px; font-size: 1rem;" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
                         </div>
                     `;
                     return;
@@ -531,7 +682,7 @@ Object.assign(GensokyoApp, {
                 const escapedContent = this.escapeHtml(routeInfo.htmlContent);
 
                 viewport.innerHTML = `
-                    <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms" srcdoc="${escapedContent}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
+                    <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms allow-modals" srcdoc="${escapedContent}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
                 `;
                 return;
             }
@@ -610,19 +761,44 @@ Object.assign(GensokyoApp, {
         const viewport = document.getElementById('th-viewport');
         if (!viewport) return;
 
+        const cleanDomain = externalDomain.replace(/^(https?:\/\/|outside:\/\/|gensokyo:\/\/)/i, '').trim();
+
         viewport.innerHTML = `
-            <div class="th-card" style="max-width: 650px; margin: 30px auto; text-align: center;">
+            <div class="th-card" style="max-width: 650px; margin: 40px auto; text-align: center; border: 2px solid var(--th-crimson);">
                 <div style="width: 70px; height: 70px; background: var(--th-crimson-light); color: var(--th-crimson); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
                     <svg class="th-svg-icon" style="width:36px; height:36px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
                 </div>
-                <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.5rem; margin-bottom: 10px;">Barrera Hakurei Impenetrable</h1>
-                <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px;">
-                    Estás intentando salir de la intranet <strong>GensokyoNet</strong> hacia la web externa (<strong>${this.escapeHtml(externalDomain)}</strong>).<br>
-                    La Gran Barrera Hakurei protege esta red doujin contra rastreadores y anuncios del mundo exterior.
+                <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.6rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Aviso de Navegación Externa</h1>
+                <p style="font-size: 1.05rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 20px;">
+                    Estás por salir de GensokyoNet para acceder al Mundo Exterior (<code>OUTSIDE:// ${this.escapeHtml(cleanDomain)}</code>).
+                </p>
+                <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                    <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver al Inicio</button>
+                    <button class="gx-btn-go" style="background: var(--th-bg-main); border: 1.5px solid var(--th-crimson); color: var(--th-crimson); font-weight: 700;" onclick="GensokyoApp.proceedCrossHakureiBarrier('${this.escapeHtml(cleanDomain)}')">Continuar al Sitio Externo ➔</button>
+                </div>
+            </div>
+        `;
+    },
+
+    renderHakureiBlocked(externalDomain) {
+        const viewport = document.getElementById('th-viewport');
+        if (!viewport) return;
+
+        const cleanDomain = externalDomain.replace(/^(https?:\/\/|outside:\/\/|gensokyo:\/\/)/i, '').trim();
+
+        viewport.innerHTML = `
+            <div class="th-card" style="max-width: 650px; margin: 40px auto; text-align: center; border: 2px solid var(--th-crimson);">
+                <div style="width: 70px; height: 70px; background: var(--th-crimson-light); color: var(--th-crimson); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+                    <svg class="th-svg-icon" style="width:36px; height:36px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                </div>
+                <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.6rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Navegación Externa Desactivada</h1>
+                <p style="font-size: 1.05rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 20px;">
+                    Tu configuración actual tiene desactivada la navegación al Mundo Exterior (<code>OUTSIDE:// ${this.escapeHtml(cleanDomain)}</code>).<br>
+                    Puedes habilitarla en el menú de Preferencias.
                 </p>
                 <div style="display: flex; gap: 12px; justify-content: center;">
-                    <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
-                    <a href="https://${this.escapeHtml(externalDomain)}" target="_blank" rel="noopener noreferrer" class="gx-btn-go" style="background: var(--th-bg-main); border: 1px solid var(--th-border-warm); color: var(--th-text-main); text-decoration: none;">Cruzar Barrera Bajo Tu Propio Riesgo ➔</a>
+                    <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver al Inicio</button>
+                    <button class="gx-btn-go" style="background: var(--th-bg-main); border: 1.5px solid var(--th-border-warm); color: var(--th-text-main);" onclick="GensokyoApp.showThemeModal()">Abrir Preferencias</button>
                 </div>
             </div>
         `;

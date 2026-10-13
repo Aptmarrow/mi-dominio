@@ -187,10 +187,10 @@ const GensokyoApp = {
         }
 
         if (this.showToastNotification) {
-            let label = 'Preguntar antes de cruzar la Barrera';
-            if (policyValue === 'auto') label = 'Siempre cruzar automáticamente al Mundo Exterior';
+            let label = 'Preguntar antes de acceder a dominios externos';
+            if (policyValue === 'auto') label = 'Acceso automático al Mundo Exterior';
             if (policyValue === 'block') label = 'Bloqueo total del Mundo Exterior';
-            this.showToastNotification(`Barrera Hakurei: ${label}`, 'info');
+            this.showToastNotification(`Navegación Externa: ${label}`, 'info');
         }
 
         this.syncHakureiPolicyUI();
@@ -231,13 +231,8 @@ const GensokyoApp = {
         this.hideThemeModal();
     },
 
-    showDonationModal() {
-        document.getElementById('th-donation-modal')?.classList.remove('hidden');
-    },
-
-    hideDonationModal() {
-        document.getElementById('th-donation-modal')?.classList.add('hidden');
-    },
+    showDonationModal() {},
+    hideDonationModal() {},
 
     /* HASHEO SEGURO DE CONTRASEÑAS CON WEB CRYPTO API (SHA-256) */
     async hashPassword(password) {

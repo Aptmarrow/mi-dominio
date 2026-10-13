@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GensokyoNet • Navegador Doujin de Touhou</title>
 
-    <meta name="description" content="Navegador y motor de búsqueda de GensokyoNet para la comunidad de Touhou Project. Explora periódicos tengu, la barrera Hakurei y dominios doujin.">
+    <meta name="description" content="Navegador y motor de búsqueda de GensokyoNet para la comunidad de Touhou Project. Explora periódicos tengu y dominios doujin.">
     <meta name="keywords" content="Touhou Project, GensokyoNet, Reimu Hakurei, Aya Shameimaru, Bunbunmaru, Hakugyokurou, Scarlet Mist">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,12 +36,6 @@
             </div>
 
             <button class="gx-add-tab-btn" onclick="GensokyoApp.createNewTab('gensokyo://home')" title="Nueva Pestaña">+</button>
-
-            <!-- PILL STATUS BARRERA HAKUREI -->
-            <div class="gx-barrier-pill" onclick="GensokyoApp.showDonationModal()" title="Caja de Ofrendas Hakurei">
-                <div class="pill-progress"><div class="pill-fill" style="width: 80%;"></div></div>
-                <span class="pill-text">Barrera 100%</span>
-            </div>
         </header>
 
         <!-- BARRA DE NAVEGACIÓN Y DIRECCIONES -->
@@ -106,13 +100,6 @@
                     <button class="gx-side-btn" onclick="GensokyoApp.showThemeModal()">
                         <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61.43.53 1.03.89 1.7.89 1.24 0 2.25-1.01 2.25-2.25 0-.46-.14-.88-.38-1.24-.31-.46-.5-.101-.5-1.51 0-1.38 1.12-2.5 2.5-2.5h2.88c1.38 0 2.5-1.12 2.5-2.5 0-3.04-2.46-5.5-5.5-5.5z"/></svg>
                         <span class="gx-tooltip">Estilos Touhou</span>
-                    </button>
-                </div>
-
-                <div class="gx-sidebar-bottom">
-                    <button class="gx-side-btn" onclick="GensokyoApp.showDonationModal()">
-                        <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                        <span class="gx-tooltip">Caja Hakurei</span>
                     </button>
                 </div>
             </aside>
@@ -342,51 +329,23 @@
                     </div>
                 </div>
 
-                <!-- POLÍTICA DE NAVEGACIÓN Y BARRERA HAKUREI -->
-                <h3 style="font-family: var(--font-heading); font-size: 0.95rem; color: var(--th-crimson); margin-bottom: 10px; text-transform: uppercase;">Política de la Barrera Hakurei</h3>
+                <!-- POLÍTICA DE NAVEGACIÓN EXTERNA -->
+                <h3 style="font-family: var(--font-heading); font-size: 0.95rem; color: var(--th-crimson); margin-bottom: 10px; text-transform: uppercase;">Navegación al Mundo Exterior</h3>
                 <div style="background: var(--th-bg-main); border: 1.5px solid var(--th-border-warm); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
                     <label style="display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 700; color: var(--th-text-main); cursor: pointer;">
                         <input type="radio" name="hakurei-policy-option" value="ask" onclick="GensokyoApp.setHakureiPolicy('ask')" style="accent-color: var(--th-crimson);">
-                        <span>Preguntar antes de cruzar la Barrera Hakurei</span>
+                        <span>Preguntar antes de acceder a dominios externos</span>
                     </label>
 
                     <label style="display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 700; color: var(--th-text-main); cursor: pointer;">
                         <input type="radio" name="hakurei-policy-option" value="auto" onclick="GensokyoApp.setHakureiPolicy('auto')" style="accent-color: var(--th-crimson);">
-                        <span>Siempre cruzar automáticamente al Mundo Exterior</span>
+                        <span>Permitir navegación automática al Mundo Exterior</span>
                     </label>
 
                     <label style="display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 700; color: var(--th-text-main); cursor: pointer;">
                         <input type="radio" name="hakurei-policy-option" value="block" onclick="GensokyoApp.setHakureiPolicy('block')" style="accent-color: var(--th-crimson);">
-                        <span>Nunca permitir acceso al Mundo Exterior</span>
+                        <span>Bloquear acceso a la web externa</span>
                     </label>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL DONACIONES CAJA HAKUREI -->
-    <div id="th-donation-modal" class="th-modal-overlay hidden">
-        <div class="th-modal-card">
-            <div class="th-modal-header">
-                <h2>Caja de Ofrendas del Templo Hakurei</h2>
-                <button class="th-modal-close" onclick="GensokyoApp.hideDonationModal()">✕</button>
-            </div>
-            <div class="th-modal-body">
-                <p style="font-size: 0.95rem; line-height: 1.5; margin-bottom: 14px;">
-                    Para mantener el servidor del dominio anual activo y la Barrera Hakurei al 100%, Reimu Hakurei recolecta ofrendas para la red.
-                </p>
-                <div class="th-donation-progress-card">
-                    <div style="display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 6px; font-size: 0.85rem;">
-                        <span>Servidor Anual GensokyoNet</span>
-                        <span>$14 / $17 USD</span>
-                    </div>
-                    <div style="width: 100%; height: 8px; background: var(--th-border-warm); border-radius: 4px; overflow: hidden;">
-                        <div style="width: 82%; height: 100%; background: var(--th-crimson);"></div>
-                    </div>
-                </div>
-                <div class="th-donation-options">
-                    <a href="https://ko-fi.com" target="_blank" rel="noopener noreferrer" class="th-donate-link kofi">Donar en Ko-fi</a>
-                    <a href="https://cafecito.app" target="_blank" rel="noopener noreferrer" class="th-donate-link cafecito">Donar en Cafecito</a>
                 </div>
             </div>
         </div>
@@ -394,6 +353,10 @@
 
     <script src="seed-data.js"></script>
     <script src="app.js"></script>
+    <script src="js/app.vfs.js"></script>
+    <script src="js/app.tech-detector.js"></script>
+    <script src="js/app.bundler.js"></script>
+    <script src="js/app.templates.js"></script>
     <script src="js/app.passport.js"></script>
     <script src="js/app.navigation.js"></script>
     <script src="js/app.search.js"></script>

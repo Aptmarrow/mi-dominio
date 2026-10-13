@@ -389,8 +389,13 @@ Object.assign(GensokyoApp, {
 
             const activeVer = userSite.activeVersion || 'v1';
             const versionObj = (userSite.versions && userSite.versions[activeVer]) ? userSite.versions[activeVer] : null;
-            const finalHtml = versionObj ? versionObj.htmlContent : userSite.htmlContent;
+            let finalHtml = versionObj ? versionObj.htmlContent : userSite.htmlContent;
             const versionsList = userSite.versions ? Object.keys(userSite.versions) : ['v1'];
+
+            const files = (versionObj && versionObj.files) || userSite.files || (this.getDomainProjectFiles ? this.getDomainProjectFiles(path) : null);
+            if (files && Object.keys(files).length > 0 && window.GensokyoBundler) {
+                finalHtml = GensokyoBundler.bundle(files);
+            }
 
             const isEmpty = this.isHtmlContentEmpty(finalHtml);
 
@@ -410,6 +415,20 @@ Object.assign(GensokyoApp, {
         }
 
         return null;
+    },
+
+    loadVirtualPage(pagePath) {
+        const activeTab = this.getActiveTab();
+        if (!activeTab) return;
+        const cleanDomain = activeTab.url.replace('gensokyo://', '').trim().toLowerCase();
+        const files = this.getDomainProjectFiles ? this.getDomainProjectFiles(cleanDomain) : null;
+        if (files && window.GensokyoBundler) {
+            const bundled = GensokyoBundler.bundle(files, pagePath);
+            const iframe = document.querySelector('iframe.user-site-iframe');
+            if (iframe) {
+                iframe.srcdoc = bundled;
+            }
+        }
     },
 
     renderRoute(fullUrl) {
@@ -620,11 +639,11 @@ Object.assign(GensokyoApp, {
                         <!-- CONTENIDO DE TEXTO Y BOTÓN SOBRE LIENZO CLARO -->
                         <div style="padding: 30px 24px; text-align: center; max-width: 600px;">
                             <div style="display: inline-block; background: var(--th-crimson); color: #ffffff; padding: 6px 18px; border-radius: 20px; font-family: var(--font-heading); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(166, 27, 50, 0.3);">
-                                Spell Card: Web-Sign ["Bloqueo por Privacidad"]
+                                Configuración de Privacidad
                             </div>
                             <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.8rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Dominio Privado</h1>
                             <p style="font-size: 1.15rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 24px;">
-                                Este lugar está siendo bloqueado por una poderosa barrera desconocida.
+                                Este sitio web está protegido y solo es accesible por su titular.
                             </p>
                             <button class="gx-btn-go" style="padding: 12px 28px; font-size: 1rem;" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
                         </div>
@@ -663,7 +682,7 @@ Object.assign(GensokyoApp, {
                 const escapedContent = this.escapeHtml(routeInfo.htmlContent);
 
                 viewport.innerHTML = `
-                    <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms" srcdoc="${escapedContent}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
+                    <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms allow-modals" srcdoc="${escapedContent}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
                 `;
                 return;
             }
@@ -749,13 +768,13 @@ Object.assign(GensokyoApp, {
                 <div style="width: 70px; height: 70px; background: var(--th-crimson-light); color: var(--th-crimson); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
                     <svg class="th-svg-icon" style="width:36px; height:36px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
                 </div>
-                <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.6rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Barrera Hakurei Impenetrable</h1>
+                <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.6rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Aviso de Navegación Externa</h1>
                 <p style="font-size: 1.05rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 20px;">
-                    Estás intentando abandonar GensokyoNet para acceder al Mundo Exterior (<code>OUTSIDE:// ${this.escapeHtml(cleanDomain)}</code>).
+                    Estás por salir de GensokyoNet para acceder al Mundo Exterior (<code>OUTSIDE:// ${this.escapeHtml(cleanDomain)}</code>).
                 </p>
                 <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-                    <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
-                    <button class="gx-btn-go" style="background: var(--th-bg-main); border: 1.5px solid var(--th-crimson); color: var(--th-crimson); font-weight: 700;" onclick="GensokyoApp.proceedCrossHakureiBarrier('${this.escapeHtml(cleanDomain)}')">Cruzar Barrera Bajo Tu Propio Riesgo ➔</button>
+                    <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver al Inicio</button>
+                    <button class="gx-btn-go" style="background: var(--th-bg-main); border: 1.5px solid var(--th-crimson); color: var(--th-crimson); font-weight: 700;" onclick="GensokyoApp.proceedCrossHakureiBarrier('${this.escapeHtml(cleanDomain)}')">Continuar al Sitio Externo ➔</button>
                 </div>
             </div>
         `;
@@ -772,14 +791,14 @@ Object.assign(GensokyoApp, {
                 <div style="width: 70px; height: 70px; background: var(--th-crimson-light); color: var(--th-crimson); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
                     <svg class="th-svg-icon" style="width:36px; height:36px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
                 </div>
-                <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.6rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Acceso al Mundo Exterior Bloqueado</h1>
+                <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.6rem; margin-bottom: 12px; font-family: var(--font-heading); text-transform: uppercase;">Navegación Externa Desactivada</h1>
                 <p style="font-size: 1.05rem; font-weight: 700; color: var(--th-text-main); line-height: 1.6; margin-bottom: 20px;">
-                    La Gran Barrera Hakurei está configurada para <strong>bloquear el acceso al Mundo Exterior</strong> (<code>OUTSIDE:// ${this.escapeHtml(cleanDomain)}</code>).<br>
-                    Puedes cambiar esta política desde el menú de Preferencias de GensokyoNet.
+                    Tu configuración actual tiene desactivada la navegación al Mundo Exterior (<code>OUTSIDE:// ${this.escapeHtml(cleanDomain)}</code>).<br>
+                    Puedes habilitarla en el menú de Preferencias.
                 </p>
                 <div style="display: flex; gap: 12px; justify-content: center;">
-                    <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
-                    <button class="gx-btn-go" style="background: var(--th-bg-main); border: 1.5px solid var(--th-border-warm); color: var(--th-text-main);" onclick="GensokyoApp.showThemeModal()">Abrir Preferencias ⚙️</button>
+                    <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver al Inicio</button>
+                    <button class="gx-btn-go" style="background: var(--th-bg-main); border: 1.5px solid var(--th-border-warm); color: var(--th-text-main);" onclick="GensokyoApp.showThemeModal()">Abrir Preferencias</button>
                 </div>
             </div>
         `;

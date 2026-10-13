@@ -1,0 +1,224 @@
+/* ==========================================================================
+   FORMULARIO DE LOGIN Y REGISTRO ESTILO TOUHOU (CON OJOS DE YUKARI EN REGISTRO)
+   ========================================================================== */
+
+.th-form-group {
+    margin-bottom: 16px;
+    text-align: left;
+}
+
+.th-form-label {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--th-crimson);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.th-form-input {
+    width: 100%;
+    background: var(--th-bg-main);
+    border: 1.5px solid var(--th-border-warm);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    color: var(--th-text-main);
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.th-form-input:focus {
+    border-color: var(--th-crimson);
+    box-shadow: 0 0 8px rgba(166, 27, 50, 0.2);
+    background: var(--th-bg-card);
+}
+
+.th-input-password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.th-input-password-wrapper input {
+    padding-right: 44px;
+}
+
+/* Botón Ojo de Yukari (Brecha dimensional) */
+.yukari-eye-btn {
+    position: absolute;
+    right: 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--th-crimson);
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.yukari-eye-btn:hover {
+    background: var(--th-crimson-light);
+    transform: scale(1.12);
+}
+
+.yukari-eye-svg {
+    width: 22px;
+    height: 22px;
+    display: block;
+}
+
+.yukari-eye-svg.hidden {
+    display: none !important;
+}
+
+.th-form-help {
+    font-size: 0.78rem;
+    color: var(--th-text-sub);
+    margin-top: 4px;
+}
+
+.th-form-error-banner {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 14px;
+    display: none;
+}
+
+.th-form-error-banner.visible {
+    display: block;
+}
+
+/* Toast Notificación flotante personalizada */
+.th-toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.th-toast {
+    background: var(--th-bg-card);
+    border: 2px solid var(--th-crimson);
+    border-radius: 10px;
+    padding: 12px 18px;
+    color: var(--th-text-main);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    font-weight: 600;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: auto;
+    animation: toastIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.th-toast.success {
+    border-color: #2e7d32;
+}
+
+.th-toast.success .toast-icon {
+    color: #2e7d32;
+}
+
+.th-toast.error {
+    border-color: #c62828;
+}
+
+.th-toast.error .toast-icon {
+    color: #c62828;
+}
+
+@keyframes toastIn {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* ==========================================================================
+   DESPLIEGUE DE PROYECTOS VS CODE, CONTROL DE VERSIONES Y CUOTAS
+   ========================================================================== */
+
+.project-drop-zone {
+    border: 2px dashed var(--th-crimson);
+    border-radius: 10px;
+    background: var(--th-bg-main);
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    margin-bottom: 16px;
+    position: relative;
+}
+
+.project-drop-zone:hover, .project-drop-zone.dragover {
+    background: var(--th-crimson-light);
+    border-color: var(--th-crimson-dark);
+    transform: scale(1.01);
+}
+
+.project-drop-icon {
+    font-size: 2rem;
+    color: var(--th-crimson);
+    margin-bottom: 8px;
+}
+
+.storage-quota-bar-container {
+    background: var(--th-bg-main);
+    border: 1px solid var(--th-border-warm);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+}
+
+.storage-quota-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--th-border-warm);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 6px;
+}
+
+.storage-quota-fill {
+    height: 100%;
+    background: var(--th-crimson);
+    transition: width 0.3s ease;
+}
+
+.user-site-iframe {
+    width: 100%;
+    height: 80vh;
+    min-height: 500px;
+    border: none;
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.version-badge {
+    display: inline-block;
+    background: var(--th-crimson);
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-family: var(--font-heading);
+}

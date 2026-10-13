@@ -1,0 +1,497 @@
+/* ==========================================================================
+   GensokyoNet IDE - Estudio Web Avanzado (Arquitectura estilo VS Code)
+   Diseño profesional, vista dividida (Editor + Vista Previa), sin emojis.
+   ========================================================================== */
+
+.vscode-ide-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 100px);
+    background: #14080b;
+    border: 1px solid var(--th-border-warm);
+    border-radius: 8px;
+    overflow: hidden;
+    color: #e0d5d5;
+    font-family: var(--font-body);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* 1. BARRA SUPERIOR DE COMANDOS DEL IDE */
+.ide-topbar {
+    height: 42px;
+    background: #1c0b10;
+    border-bottom: 1px solid #33141c;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    font-size: 0.85rem;
+}
+
+.ide-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ide-btn-back {
+    background: transparent;
+    border: 1px solid #4a1d28;
+    color: #e0d5d5;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.ide-btn-back:hover {
+    background: #33141c;
+    border-color: var(--th-crimson);
+}
+
+.ide-project-title {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ide-badge-version {
+    background: var(--th-crimson);
+    color: #ffffff;
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+}
+
+.ide-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ide-btn-primary {
+    background: var(--th-crimson);
+    color: #ffffff;
+    border: 1px solid #c21f3d;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.ide-btn-primary:hover {
+    background: #bd1735;
+}
+
+.ide-btn-secondary {
+    background: #240e14;
+    color: #e0d5d5;
+    border: 1px solid #4a1d28;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ide-btn-secondary:hover {
+    background: #33141c;
+    border-color: #6e2738;
+}
+
+.ide-select {
+    background: #240e14;
+    color: #e0d5d5;
+    border: 1px solid #4a1d28;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    outline: none;
+}
+
+/* 2. ÁREA PRINCIPAL DIVIDIDA (EXPLORER + EDITOR + LIVE PREVIEW) */
+.ide-main-workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+/* 2.1 EXPLORADOR DE ARCHIVOS (PANEL LATERAL IZQUIERDO) */
+.ide-explorer-panel {
+    width: 250px;
+    background: #18090d;
+    border-right: 1px solid #33141c;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+}
+
+.ide-explorer-header {
+    height: 32px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #14070a;
+    border-bottom: 1px solid #290f16;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #a89498;
+    text-transform: uppercase;
+}
+
+.ide-explorer-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.ide-icon-btn {
+    background: none;
+    border: none;
+    color: #a89498;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+.ide-icon-btn:hover {
+    color: #ffffff;
+    background: #33141c;
+}
+
+.ide-file-tree {
+    flex: 1;
+    overflow-y: auto;
+    list-style: none;
+    padding: 6px 0;
+    margin: 0;
+}
+
+.ide-file-item {
+    padding: 5px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: #cfc2c4;
+    transition: background 0.15s;
+}
+
+.ide-file-item:hover {
+    background: #240e14;
+    color: #ffffff;
+}
+
+.ide-file-item.active {
+    background: #38101a;
+    color: #ffffff;
+    border-left: 2px solid var(--th-crimson);
+}
+
+.ide-file-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ide-tag-ext {
+    font-size: 0.68rem;
+    font-family: monospace;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 2px;
+}
+
+.ide-tag-html { background: #e44d26; color: #fff; }
+.ide-tag-css { background: #264de4; color: #fff; }
+.ide-tag-js { background: #f7df1e; color: #000; }
+.ide-tag-asset { background: #00838f; color: #fff; }
+.ide-tag-generic { background: #555555; color: #fff; }
+
+.ide-explorer-footer {
+    padding: 10px 12px;
+    background: #14070a;
+    border-top: 1px solid #290f16;
+    font-size: 0.75rem;
+    color: #8c777b;
+}
+
+.ide-quota-progress {
+    width: 100%;
+    height: 4px;
+    background: #290f16;
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+}
+
+.ide-quota-fill {
+    height: 100%;
+    background: var(--th-crimson);
+    transition: width 0.3s;
+}
+
+/* 2.2 COLUMNA DEL EDITOR DE CÓDIGO (DIVISIÓN LADO A LADO) */
+.ide-editor-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #33141c;
+    min-width: 320px;
+}
+
+.ide-tabs-bar {
+    height: 34px;
+    background: #14070a;
+    border-bottom: 1px solid #290f16;
+    display: flex;
+    overflow-x: auto;
+}
+
+.ide-tab {
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #18090d;
+    border-right: 1px solid #290f16;
+    font-size: 0.8rem;
+    color: #9c878b;
+    cursor: pointer;
+    border-top: 2px solid transparent;
+}
+
+.ide-tab.active {
+    background: #1f0b12;
+    color: #ffffff;
+    border-top-color: var(--th-crimson);
+}
+
+.ide-editor-wrapper {
+    flex: 1;
+    display: flex;
+    background: #180a0f;
+    position: relative;
+    overflow: hidden;
+}
+
+.ide-gutter {
+    width: 44px;
+    padding: 12px 6px;
+    background: #14070a;
+    border-right: 1px solid #240c13;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.82rem;
+    color: #573a41;
+    text-align: right;
+    user-select: none;
+    line-height: 1.5;
+    overflow: hidden;
+}
+
+.ide-textarea {
+    flex: 1;
+    background: #180a0f;
+    color: #f0e6e8;
+    border: none;
+    padding: 12px 14px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    resize: none;
+    outline: none;
+    tab-size: 2;
+    overflow-y: auto;
+    white-space: pre;
+}
+
+/* 2.3 COLUMNA DE VISTA PREVIA EN VIVO (SPLIT DERECHO 50%) */
+.ide-preview-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #100508;
+    min-width: 340px;
+}
+
+.ide-preview-toolbar {
+    height: 34px;
+    background: #14070a;
+    border-bottom: 1px solid #290f16;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+}
+
+.ide-preview-url-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #1f0b12;
+    border: 1px solid #38121d;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    color: #baa2a6;
+    font-family: monospace;
+}
+
+.ide-device-switch {
+    display: flex;
+    gap: 4px;
+}
+
+.ide-device-btn {
+    background: transparent;
+    border: 1px solid #38121d;
+    color: #8f797d;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.72rem;
+    cursor: pointer;
+}
+
+.ide-device-btn.active {
+    background: #331019;
+    color: #ffffff;
+    border-color: var(--th-crimson);
+}
+
+.ide-preview-viewport {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #0d0406;
+    padding: 8px;
+    overflow: hidden;
+}
+
+.ide-live-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #ffffff;
+    border-radius: 4px;
+    transition: width 0.25s ease;
+}
+
+.ide-live-iframe.device-tablet {
+    width: 768px;
+}
+
+.ide-live-iframe.device-mobile {
+    width: 375px;
+}
+
+/* 3. BARRA DE ESTADO INFERIOR DEL IDE */
+.ide-statusbar {
+    height: 24px;
+    background: #140609;
+    border-top: 1px solid #2b0d14;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    font-size: 0.74rem;
+    color: #8c767b;
+}
+
+.ide-statusbar-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ide-tech-chip {
+    background: #240c13;
+    border: 1px solid #3d141f;
+    color: #d1b5ba;
+    padding: 1px 6px;
+    border-radius: 2px;
+    font-size: 0.68rem;
+    font-family: monospace;
+    font-weight: bold;
+}
+
+/* MODAL DE PLANTILLAS Y HERRAMIENTAS */
+.ide-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 2, 4, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.ide-dialog-card {
+    background: #18090d;
+    border: 1.5px solid var(--th-crimson);
+    border-radius: 8px;
+    padding: 20px;
+    width: 480px;
+    max-width: 90vw;
+    color: #ffffff;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.ide-dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #33141c;
+    padding-bottom: 8px;
+}
+
+.ide-dialog-header h3 {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    color: #ffffff;
+    margin: 0;
+}
+
+.ide-dialog-item {
+    background: #210c12;
+    border: 1px solid #3d141f;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ide-dialog-item:hover {
+    background: #331019;
+    border-color: var(--th-crimson);
+}
+
+.ide-dialog-item-title {
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: #ffffff;
+}
+
+.ide-dialog-item-desc {
+    font-size: 0.75rem;
+    color: #a89498;
+    margin-top: 2px;
+}

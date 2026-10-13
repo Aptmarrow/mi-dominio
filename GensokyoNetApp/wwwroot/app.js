@@ -23,6 +23,7 @@ const GensokyoApp = {
         ownedDomains: [],
         oauthToken: 'gx_live_token_0000_nameless_youkai_key'
     },
+    hakureiPolicy: 'ask', // 'ask' | 'auto' | 'block'
     tempAvatarDataUrl: null,
     cropZoom: 1,
 
@@ -31,6 +32,7 @@ const GensokyoApp = {
         this.loadPassportData();
         this.loadUserDomains();
         this.loadSecurityConfig();
+        this.loadHakureiPolicy();
 
         const urlInput = document.getElementById('th-url-input');
         if (urlInput) {
@@ -168,7 +170,39 @@ const GensokyoApp = {
         if (countEl) countEl.innerText = `Dominios Activos: ${total}`;
     },
 
+    loadHakureiPolicy() {
+        const stored = localStorage.getItem('gensokyo_hakurei_policy');
+        if (stored && ['ask', 'auto', 'block'].includes(stored)) {
+            this.hakureiPolicy = stored;
+        }
+    },
+
+    setHakureiPolicy(policyValue) {
+        if (!['ask', 'auto', 'block'].includes(policyValue)) return;
+        this.hakureiPolicy = policyValue;
+        try {
+            localStorage.setItem('gensokyo_hakurei_policy', policyValue);
+        } catch (e) {
+            console.error('Error al guardar política de la Barrera Hakurei', e);
+        }
+
+        if (this.showToastNotification) {
+            let label = 'Preguntar antes de acceder a dominios externos';
+            if (policyValue === 'auto') label = 'Acceso automático al Mundo Exterior';
+            if (policyValue === 'block') label = 'Bloqueo total del Mundo Exterior';
+            this.showToastNotification(`Navegación Externa: ${label}`, 'info');
+        }
+
+        this.syncHakureiPolicyUI();
+    },
+
+    syncHakureiPolicyUI() {
+        const radio = document.querySelector(`input[name="hakurei-policy-option"][value="${this.hakureiPolicy}"]`);
+        if (radio) radio.checked = true;
+    },
+
     showThemeModal() {
+        this.syncHakureiPolicyUI();
         document.getElementById('th-theme-modal')?.classList.remove('hidden');
     },
 
@@ -197,13 +231,8 @@ const GensokyoApp = {
         this.hideThemeModal();
     },
 
-    showDonationModal() {
-        document.getElementById('th-donation-modal')?.classList.remove('hidden');
-    },
-
-    hideDonationModal() {
-        document.getElementById('th-donation-modal')?.classList.add('hidden');
-    },
+    showDonationModal() {},
+    hideDonationModal() {},
 
     /* HASHEO SEGURO DE CONTRASEÑAS CON WEB CRYPTO API (SHA-256) */
     async hashPassword(password) {
