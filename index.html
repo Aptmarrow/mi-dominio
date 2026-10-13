@@ -60,6 +60,8 @@
                     <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
                     Inicio
                 </button>
+                <button id="th-bookmark-toggle-btn" class="gx-btn gx-bookmark-btn" onclick="GensokyoApp.toggleBookmarkCurrentTab()" title="Agregar a favoritos">☆</button>
+                <button class="gx-btn" onclick="GensokyoApp.showBookmarksModal()" title="Ver Favoritos">Favoritos</button>
             </div>
 
             <div class="gx-address-bar">
@@ -288,6 +290,19 @@
                         <button type="button" class="gx-btn-go" style="background: var(--th-bg-main); border: 1.5px solid var(--th-border-warm); color: var(--th-text-main); padding: 10px 16px; font-size: 0.9rem;" onclick="GensokyoApp.hideLoginModal()">Cancelar</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FAVORITOS -->
+    <div id="th-bookmarks-modal" class="th-modal-overlay hidden">
+        <div class="th-modal-card" style="max-width: 560px;">
+            <div class="th-modal-header">
+                <h2>Favoritos de GensokyoNet</h2>
+                <button class="th-modal-close" onclick="GensokyoApp.hideBookmarksModal()">✕</button>
+            </div>
+            <div class="th-modal-body" style="padding: 18px;">
+                <div id="th-bookmarks-list"></div>
             </div>
         </div>
     </div>

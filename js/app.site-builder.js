@@ -101,6 +101,7 @@ Object.assign(GensokyoApp, {
         }
 
         this.saveUserDomains();
+        this.notifyRemoteDomainMutation(fullDomain, 'v1', 'register').catch(() => {});
         this.builderSelectedDomain = fullDomain;
         this.showToastNotification(`¡Dominio gensokyo://${fullDomain} registrado a tu nombre!`, 'success');
         this.navigate('gensokyo://builder');
@@ -124,6 +125,7 @@ Object.assign(GensokyoApp, {
 
         domObj.visibility = visibilityTag;
         this.saveUserDomains();
+        this.notifyRemoteDomainMutation(domainName, domObj.activeVersion || 'v1', 'visibility').catch(() => {});
 
         let label = 'Público y Listado';
         if (visibilityTag === 'unlisted') label = 'No Listado (Solo Dirección Directa)';
@@ -247,7 +249,7 @@ Object.assign(GensokyoApp, {
                             <input type="file" id="file-upload-${this.escapeHtml(domKey)}" webkitdirectory directory multiple style="display:none;" onchange="GensokyoApp.handleProjectFolderUpload(event, '${this.escapeHtml(domKey)}')">
                             <div class="project-drop-icon">📁</div>
                             <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">Subir Proyecto desde VS Code / PC</h3>
-                            <p style="font-size:0.85rem; color:var(--th-text-sub);">Versión actual: solo se admite <strong>1 archivo HTML autocontenido</strong> (sin assets externos). Si subes carpeta con CSS/JS/imagenes, se rechazará.</p>
+                            <p style="font-size:0.85rem; color:var(--th-text-sub);">Soporta carpeta multi-archivo (<strong>HTML + CSS + JS + assets</strong>). Entrada preferida: <strong>index.html</strong> (si no existe, toma el primer .html).</p>
                         </div>
 
                         <!-- BARRA DE CUOTA DE ALMACENAMIENTO (SOFT-LIMIT 25 MB) -->
@@ -344,7 +346,219 @@ Object.assign(GensokyoApp, {
         this.processProjectFiles(files, domainName);
     },
 
-    processProjectFiles(files, domainName) {
+    normalizeProjectPath(pathLike) {
+        if (!pathLike || typeof pathLike !== 'string') return '';
+        return pathLike
+            .replace(/\\/g, '/')
+            .replace(/^\.\//, '')
+            .replace(/^\/+/, '')
+            .trim()
+            .toLowerCase();
+    },
+
+    isExternalOrSpecialUrl(url) {
+        if (!url || typeof url !== 'string') return true;
+        const clean = url.trim().toLowerCase();
+        return clean.startsWith('http://') ||
+            clean.startsWith('https://') ||
+            clean.startsWith('data:') ||
+            clean.startsWith('blob:') ||
+            clean.startsWith('mailto:') ||
+            clean.startsWith('javascript:') ||
+            clean.startsWith('#') ||
+            clean.startsWith('gensokyo://') ||
+            clean.startsWith('outside://');
+    },
+
+    toDataUrl(fileObj) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error(`No se pudo leer ${fileObj.name}`));
+            reader.readAsDataURL(fileObj);
+        });
+    },
+
+    toText(fileObj) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = () => reject(new Error(`No se pudo leer ${fileObj.name}`));
+            reader.readAsText(fileObj);
+        });
+    },
+
+    getMimeTypeFromName(fileName) {
+        const lower = (fileName || '').toLowerCase();
+        if (lower.endsWith('.css')) return 'text/css';
+        if (lower.endsWith('.js') || lower.endsWith('.mjs') || lower.endsWith('.cjs')) return 'text/javascript';
+        if (lower.endsWith('.json')) return 'application/json';
+        if (lower.endsWith('.svg')) return 'image/svg+xml';
+        if (lower.endsWith('.html') || lower.endsWith('.htm')) return 'text/html';
+        return 'application/octet-stream';
+    },
+
+    textToDataUrl(text, mimeType) {
+        const normalizedText = typeof text === 'string' ? text : String(text || '');
+        const utf8 = unescape(encodeURIComponent(normalizedText));
+        return `data:${mimeType};base64,${btoa(utf8)}`;
+    },
+
+    detectUnsupportedSourceProject(mainHtmlText, files) {
+        const lowerHtml = (mainHtmlText || '').toLowerCase();
+        const filePaths = files.map((f) => this.normalizeProjectPath(f.webkitRelativePath || f.name));
+
+        const hasPackageJson = filePaths.some((p) => p.endsWith('/package.json') || p === 'package.json');
+        const hasFrameworkConfig = filePaths.some((p) =>
+            p.endsWith('/vite.config.js') || p === 'vite.config.js' ||
+            p.endsWith('/next.config.js') || p === 'next.config.js' ||
+            p.endsWith('/nuxt.config.js') || p === 'nuxt.config.js'
+        );
+
+        const hasSourceExtensions = files.some((f) => /\.(jsx|tsx|ts|vue|svelte)$/i.test(f.name));
+        const htmlReferencesSourceEntry = /src\s*=\s*["'][^"']*\.(jsx|tsx|ts|vue|svelte)["']/i.test(mainHtmlText || '') ||
+            lowerHtml.includes('/src/main.') ||
+            lowerHtml.includes('/src/app.');
+
+        const hasBuiltArtifacts = files.some((f) => {
+            const p = this.normalizeProjectPath(f.webkitRelativePath || f.name);
+            return /(^|\/)(dist|build)\//i.test(p);
+        });
+
+        const unsupported = (hasPackageJson || hasFrameworkConfig || hasSourceExtensions || htmlReferencesSourceEntry) && !hasBuiltArtifacts;
+        return {
+            unsupported,
+            hasPackageJson,
+            hasFrameworkConfig,
+            hasSourceExtensions,
+            htmlReferencesSourceEntry,
+            hasBuiltArtifacts
+        };
+    },
+
+    rewriteCssAssetUrls(cssText, basePath, resolveRef) {
+        const baseDir = this.normalizeProjectPath(basePath).split('/').slice(0, -1).join('/');
+        return (cssText || '').replace(/url\((['"]?)([^'"\)]+)\1\)/gi, (full, quote, rawUrl) => {
+            const candidate = (rawUrl || '').trim();
+            if (!candidate || this.isExternalOrSpecialUrl(candidate)) return full;
+            const resolved = resolveRef(candidate, baseDir);
+            if (!resolved || !resolved.bundleUrl) return full;
+            return `url(${quote || ''}${resolved.bundleUrl}${quote || ''})`;
+        });
+    },
+
+    rewriteJsModuleImports(jsText, basePath, resolveRef) {
+        const baseDir = this.normalizeProjectPath(basePath).split('/').slice(0, -1).join('/');
+        let result = jsText || '';
+
+        result = result.replace(/(import\s+(?:[^'"\n]*?\sfrom\s*)?["'])([^"']+)(["'])/g, (full, p1, specifier, p3) => {
+            const candidate = (specifier || '').trim();
+            if (!candidate || this.isExternalOrSpecialUrl(candidate)) return full;
+            const resolved = resolveRef(candidate, baseDir);
+            if (!resolved || !resolved.bundleUrl) return full;
+            return `${p1}${resolved.bundleUrl}${p3}`;
+        });
+
+        result = result.replace(/(export\s+[^'"\n]*?\sfrom\s*["'])([^"']+)(["'])/g, (full, p1, specifier, p3) => {
+            const candidate = (specifier || '').trim();
+            if (!candidate || this.isExternalOrSpecialUrl(candidate)) return full;
+            const resolved = resolveRef(candidate, baseDir);
+            if (!resolved || !resolved.bundleUrl) return full;
+            return `${p1}${resolved.bundleUrl}${p3}`;
+        });
+
+        result = result.replace(/(import\(\s*["'])([^"']+)(["']\s*\))/g, (full, p1, specifier, p3) => {
+            const candidate = (specifier || '').trim();
+            if (!candidate || this.isExternalOrSpecialUrl(candidate)) return full;
+            const resolved = resolveRef(candidate, baseDir);
+            if (!resolved || !resolved.bundleUrl) return full;
+            return `${p1}${resolved.bundleUrl}${p3}`;
+        });
+
+        return result;
+    },
+
+    rewriteHtmlProjectLinks(htmlText, mainFilePath, fileMap) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlText || '', 'text/html');
+        const mainDir = this.normalizeProjectPath(mainFilePath).split('/').slice(0, -1).join('/');
+
+        const resolveRelativePath = (rawPath) => {
+            const candidate = this.normalizeProjectPath(rawPath);
+            if (!candidate) return null;
+
+            const tryPaths = [];
+            if (mainDir) tryPaths.push(this.normalizeProjectPath(`${mainDir}/${candidate}`));
+            tryPaths.push(candidate);
+
+            for (const p of tryPaths) {
+                if (fileMap[p]) return fileMap[p];
+            }
+            return null;
+        };
+
+        // CSP de proyectos reales suele bloquear data: en srcdoc; se remueve para evitar pantalla blanca.
+        doc.querySelectorAll('meta[http-equiv="content-security-policy" i]').forEach((el) => el.remove());
+
+        doc.querySelectorAll('[src]').forEach((el) => {
+            const original = el.getAttribute('src');
+            if (!original || this.isExternalOrSpecialUrl(original)) return;
+            const resolved = resolveRelativePath(original);
+            if (resolved && resolved.bundleUrl) {
+                el.setAttribute('src', resolved.bundleUrl);
+            }
+        });
+
+        doc.querySelectorAll('[href]').forEach((el) => {
+            const original = el.getAttribute('href');
+            if (!original || this.isExternalOrSpecialUrl(original)) return;
+            const resolved = resolveRelativePath(original);
+            if (resolved && resolved.bundleUrl) {
+                el.setAttribute('href', resolved.bundleUrl);
+            }
+        });
+
+        // Overlay de diagnóstico para evitar "pantalla blanca" silenciosa cuando hay errores JS en runtime.
+        const diagnosticsScript = doc.createElement('script');
+        diagnosticsScript.textContent = `
+            (function () {
+                function showOverlay(message) {
+                    if (document.getElementById('gx-runtime-error-overlay')) return;
+                    var box = document.createElement('div');
+                    box.id = 'gx-runtime-error-overlay';
+                    box.style.position = 'fixed';
+                    box.style.top = '16px';
+                    box.style.left = '16px';
+                    box.style.right = '16px';
+                    box.style.zIndex = '2147483647';
+                    box.style.background = '#2b0a0a';
+                    box.style.color = '#fff';
+                    box.style.border = '1px solid #ff6b6b';
+                    box.style.borderRadius = '8px';
+                    box.style.padding = '12px 14px';
+                    box.style.fontFamily = 'monospace';
+                    box.style.fontSize = '12px';
+                    box.style.whiteSpace = 'pre-wrap';
+                    box.textContent = '[GensokyoNet Runtime Error]\\n' + message;
+                    document.body.appendChild(box);
+                }
+
+                window.addEventListener('error', function (ev) {
+                    showOverlay((ev && ev.message) ? ev.message : 'Error desconocido en runtime.');
+                });
+
+                window.addEventListener('unhandledrejection', function (ev) {
+                    var msg = (ev && ev.reason && ev.reason.message) ? ev.reason.message : String(ev && ev.reason ? ev.reason : 'Promise rechazada sin detalle');
+                    showOverlay(msg);
+                });
+            })();
+        `;
+        (doc.body || doc.documentElement).appendChild(diagnosticsScript);
+
+        return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`;
+    },
+
+    async processProjectFiles(files, domainName) {
         const domObj = this.userDomains[domainName];
         if (!domObj) return;
 
@@ -355,31 +569,134 @@ Object.assign(GensokyoApp, {
             return;
         }
 
-        // Busca el archivo principal index.html o el primer .html
-        let mainHtmlFile = files.find(f => f.name.toLowerCase() === 'index.html') || files.find(f => f.name.toLowerCase().endsWith('.html'));
+        const htmlFiles = files.filter((f) => f.name.toLowerCase().endsWith('.html'));
+        const mainHtmlFile = htmlFiles
+            .map((f) => {
+                const rawPath = f.webkitRelativePath && f.webkitRelativePath.trim() ? f.webkitRelativePath : f.name;
+                const normalizedPath = this.normalizeProjectPath(rawPath);
+                const segments = normalizedPath ? normalizedPath.split('/') : [];
+                const depth = Math.max(0, segments.length - 1);
+                const isIndex = normalizedPath.endsWith('/index.html') || normalizedPath === 'index.html';
+                const isLikelyArtifact = /(node_modules|\.git|\.next|dist\/assets|coverage|\.cache|vendor)/i.test(normalizedPath);
+
+                // Menor score = mejor candidato de entrada.
+                let score = 0;
+                if (!isIndex) score += 20;
+                score += depth;
+                if (isLikelyArtifact) score += 100;
+
+                return { file: f, score, normalizedPath };
+            })
+            .sort((a, b) => a.score - b.score)[0]?.file;
 
         if (!mainHtmlFile) {
             this.showToastNotification('No se encontró ningún archivo .html en la carpeta seleccionada.', 'error');
             return;
         }
 
-        // Evita descartar assets en silencio: por ahora solo se admite un HTML autocontenido.
-        if (files.length > 1) {
-            this.showToastNotification('Por ahora solo se admite 1 archivo HTML autocontenido. Elimina assets externos o embébelos en el HTML.', 'error');
-            return;
-        }
-
-        const totalSizeBytes = mainHtmlFile.size || 0;
+        const totalSizeBytes = files.reduce((acc, f) => acc + (f.size || 0), 0);
         const maxSizeBytes = 25 * 1024 * 1024; // 25 MB limit
 
         if (totalSizeBytes > maxSizeBytes) {
-            this.showToastNotification(`Error: El HTML pesa ${(totalSizeBytes / (1024 * 1024)).toFixed(2)} MB y supera el límite de 25 MB.`, 'error');
+            this.showToastNotification(`Error: El proyecto pesa ${(totalSizeBytes / (1024 * 1024)).toFixed(2)} MB y supera el límite de 25 MB.`, 'error');
             return;
         }
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const htmlText = e.target.result;
+        try {
+            const mainHtmlText = await this.toText(mainHtmlFile);
+            const sourceCheck = this.detectUnsupportedSourceProject(mainHtmlText, files);
+
+            if (sourceCheck.unsupported) {
+                this.showToastNotification('Este proyecto parece código fuente (Vite/React/TSX/etc). Compílalo primero y sube la carpeta dist/build.', 'error');
+                this.showToastNotification('Tip rápido: en Frontend ejecuta npm run build y luego sube Frontend/dist.', 'info');
+                return;
+            }
+
+            const projectFiles = await Promise.all(files.map(async (f) => {
+                const rawPath = f.webkitRelativePath && f.webkitRelativePath.trim() ? f.webkitRelativePath : f.name;
+                const normalizedRaw = this.normalizeProjectPath(rawPath);
+                const normalizedName = this.normalizeProjectPath(f.name);
+                const withoutTopLevel = normalizedRaw.includes('/') ? normalizedRaw.split('/').slice(1).join('/') : normalizedRaw;
+                const dataUrl = await this.toDataUrl(f);
+                const isTextAsset = /\.(html?|css|js|mjs|cjs)$/i.test(f.name);
+                const text = isTextAsset ? await this.toText(f) : null;
+                return {
+                    file: f,
+                    pathCandidates: [normalizedRaw, withoutTopLevel, normalizedName].filter(Boolean),
+                    dataUrl,
+                    text,
+                    primaryPath: normalizedRaw || withoutTopLevel || normalizedName
+                };
+            }));
+
+            const fileMap = {};
+            projectFiles.forEach((entry) => {
+                entry.pathCandidates.forEach((key) => {
+                    if (!fileMap[key]) {
+                        fileMap[key] = entry;
+                    }
+                });
+            });
+
+            const resolveProjectEntry = (rawPath, baseDir = '') => {
+                const candidate = this.normalizeProjectPath(rawPath);
+                if (!candidate) return null;
+
+                const probes = [];
+                if (baseDir) probes.push(this.normalizeProjectPath(`${baseDir}/${candidate}`));
+                probes.push(candidate);
+
+                for (const p of probes) {
+                    if (fileMap[p]) return { entry: fileMap[p], resolvedPath: p };
+                }
+                return null;
+            };
+
+            const bundleCache = new WeakMap();
+            const buildBundleForEntry = (entry, stack = new Set()) => {
+                if (!entry) return null;
+                if (bundleCache.has(entry)) return bundleCache.get(entry);
+                if (stack.has(entry)) return entry.dataUrl;
+
+                stack.add(entry);
+
+                let bundleUrl = entry.dataUrl;
+                const fileName = entry.file.name || '';
+                const filePath = entry.primaryPath || this.normalizeProjectPath(fileName);
+                const mimeType = entry.file.type || this.getMimeTypeFromName(fileName);
+
+                if (typeof entry.text === 'string') {
+                    let rewrittenText = entry.text;
+
+                    const resolveRefWithBundle = (refPath, baseDir) => {
+                        const resolved = resolveProjectEntry(refPath, baseDir);
+                        if (!resolved || !resolved.entry) return null;
+                        const depBundle = buildBundleForEntry(resolved.entry, stack);
+                        if (!depBundle) return null;
+                        return { bundleUrl: depBundle };
+                    };
+
+                    if (/\.css$/i.test(fileName)) {
+                        rewrittenText = this.rewriteCssAssetUrls(rewrittenText, filePath, resolveRefWithBundle);
+                    }
+
+                    if (/\.(js|mjs|cjs)$/i.test(fileName)) {
+                        rewrittenText = this.rewriteJsModuleImports(rewrittenText, filePath, resolveRefWithBundle);
+                    }
+
+                    bundleUrl = this.textToDataUrl(rewrittenText, mimeType);
+                }
+
+                bundleCache.set(entry, bundleUrl);
+                stack.delete(entry);
+                return bundleUrl;
+            };
+
+            projectFiles.forEach((entry) => {
+                entry.bundleUrl = buildBundleForEntry(entry);
+            });
+
+            const rewrittenHtml = this.rewriteHtmlProjectLinks(mainHtmlText, mainHtmlFile.webkitRelativePath || mainHtmlFile.name, fileMap);
 
             if (!domObj.versions) {
                 domObj.versions = {
@@ -393,21 +710,32 @@ Object.assign(GensokyoApp, {
 
             domObj.versions[nextVersionTag] = {
                 versionTag: nextVersionTag,
-                htmlContent: htmlText,
-                sizeBytes: totalSizeBytes || htmlText.length,
+                htmlContent: rewrittenHtml,
+                sizeBytes: totalSizeBytes || rewrittenHtml.length,
                 createdAt: new Date().toISOString(),
-                fileCount: files.length
+                fileCount: files.length,
+                sourceMode: 'folder-upload-bundled'
             };
 
             domObj.activeVersion = nextVersionTag;
-            domObj.htmlContent = htmlText;
+            domObj.htmlContent = rewrittenHtml;
 
             this.saveUserDomains();
+            this.notifyRemoteDomainMutation(domainName, nextVersionTag, 'upload').catch(() => {});
             this.renderRoute('gensokyo://builder');
-            this.showToastNotification(`¡Proyecto desplegado con éxito! Versión ${nextVersionTag} activa en gensokyo://${domainName}.`, 'success');
-        };
+            const entryPath = mainHtmlFile.webkitRelativePath && mainHtmlFile.webkitRelativePath.trim() ? mainHtmlFile.webkitRelativePath : mainHtmlFile.name;
+            this.showToastNotification(`¡Proyecto desplegado con éxito! Entrada: ${entryPath} • ${files.length} archivos empaquetados en versión ${nextVersionTag}.`, 'success');
 
-        reader.readAsText(mainHtmlFile);
+            const hasSourceOnlyMarkers = files.some((f) => /(^|\/)package\.json$/i.test((f.webkitRelativePath || f.name).replace(/\\/g, '/'))) &&
+                files.some((f) => /\.(ts|tsx|vue|svelte|jsx)$/i.test(f.name));
+
+            if (hasSourceOnlyMarkers) {
+                this.showToastNotification('Aviso: parece código fuente de framework. Si ves pantalla blanca, sube la carpeta compilada (dist/build) en lugar de src.', 'info');
+            }
+        } catch (err) {
+            console.error('Error procesando proyecto multi-archivo', err);
+            this.showToastNotification('No se pudo procesar la carpeta del proyecto. Revisa que incluya al menos un .html válido.', 'error');
+        }
     },
 
     saveEditorContent(domainName) {
@@ -447,6 +775,7 @@ Object.assign(GensokyoApp, {
         domObj.htmlContent = newHtml;
 
         this.saveUserDomains();
+        this.notifyRemoteDomainMutation(domainName, nextVersionTag, 'editor-save').catch(() => {});
         this.renderRoute('gensokyo://builder');
         this.showToastNotification(`¡Guardado exitoso! Nueva versión ${nextVersionTag} desplegada en gensokyo://${domainName}.`, 'success');
     },
@@ -466,6 +795,7 @@ Object.assign(GensokyoApp, {
         domObj.htmlContent = domObj.versions[versionTag].htmlContent;
 
         this.saveUserDomains();
+        this.notifyRemoteDomainMutation(domainName, versionTag, 'rollback').catch(() => {});
         this.renderRoute('gensokyo://builder');
         this.showToastNotification(`¡Rollback Exitoso! Dominio gensokyo://${domainName} restaurado a la versión ${versionTag}.`, 'success');
     }

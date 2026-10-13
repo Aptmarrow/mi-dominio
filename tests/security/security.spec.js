@@ -128,7 +128,7 @@ test.describe('GensokyoNet security regression suite', () => {
     await expect(page.getByText('Dominio Privado')).toBeVisible();
   });
 
-  test('builder rejects multi-file uploads to avoid silent asset discard', async ({ page, baseURL }) => {
+  test('builder accepts multi-file uploads and bundles linked assets', async ({ page, baseURL }) => {
     await openFresh(page, baseURL);
 
     await page.evaluate(() => {
@@ -172,17 +172,30 @@ test.describe('GensokyoNet security regression suite', () => {
       };
     });
 
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       const files = [
-        new File(['<html></html>'], 'index.html', { type: 'text/html' }),
+        new File(['<html><head><link rel="stylesheet" href="style.css"></head><body><h1>ok</h1></body></html>'], 'index.html', { type: 'text/html' }),
         new File(['body{}'], 'style.css', { type: 'text/css' }),
       ];
-      GensokyoApp.processProjectFiles(files, 'alice.blog');
+      await GensokyoApp.processProjectFiles(files, 'alice.blog');
     });
 
-    const toast = await page.evaluate(() => window.__lastToast);
-    expect(toast).toContain('error:');
-    expect(toast).toContain('solo se admite 1 archivo HTML autocontenido');
+    const result = await page.evaluate(() => {
+      const toast = window.__lastToast;
+      const dom = GensokyoApp.userDomains['alice.blog'];
+      const active = dom?.versions?.[dom.activeVersion];
+      return {
+        toast,
+        activeVersion: dom?.activeVersion,
+        fileCount: active?.fileCount,
+        html: active?.htmlContent || '',
+      };
+    });
+
+    expect(result.toast).toContain('success:');
+    expect(result.fileCount).toBe(2);
+    expect(result.activeVersion).toBe('v2');
+    expect(result.html).toContain('data:text/css');
   });
 
   test('registration stores password hash and never plaintext password', async ({ page, baseURL }) => {

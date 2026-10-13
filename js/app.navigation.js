@@ -46,7 +46,10 @@ Object.assign(GensokyoApp, {
         this.renderTabsBar();
         this.updateUrlInput(activeTab.url);
         this.renderRoute(activeTab.url);
+        this.syncNativeContentForTab(activeTab);
         this.updateSidebarActiveState(activeTab.url);
+        this.initViewportObserver();
+        this.syncBookmarkButtonUI();
     },
 
     getActiveTab() {
@@ -59,12 +62,64 @@ Object.assign(GensokyoApp, {
 
         bar.innerHTML = this.tabs.map((tab) => `
             <div class="gx-tab ${tab.id === this.activeTabId ? 'active' : ''}" onclick="GensokyoApp.switchTab('${tab.id}')">
+                ${this.getTabIconMarkup(tab.url)}
                 <span class="gx-tab-title">${this.escapeHtml(tab.title)}</span>
                 <span class="gx-tab-close" onclick="GensokyoApp.closeTab('${tab.id}', event)">
                     <svg style="width:10px; height:10px;" viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                 </span>
             </div>
         `).join('');
+    },
+
+    getTabIconMarkup(url) {
+        const raw = (url || '').trim();
+        const clean = raw.replace(/^(gensokyo|outside):\/\//i, '').toLowerCase();
+
+        if (!clean || clean === 'home') {
+            return '<svg class="gx-tab-favicon" viewBox="0 0 24 24"><path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>';
+        }
+        if (clean.startsWith('search')) {
+            return '<svg class="gx-tab-favicon" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79l5 4.99L20.49 19l-4.99-5zM9.5 14A4.5 4.5 0 1 1 14 9.5A4.5 4.5 0 0 1 9.5 14z"/></svg>';
+        }
+        if (clean === 'builder') {
+            return '<svg class="gx-tab-favicon" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83l3.75 3.75l1.84-1.82z"/></svg>';
+        }
+        if (clean === 'register') {
+            return '<svg class="gx-tab-favicon" viewBox="0 0 24 24"><path fill="currentColor" d="M21.41 11.58l-9-9A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 .59 1.41l9 9a2 2 0 0 0 2.82 0l7-7a2 2 0 0 0 0-2.83zM5.5 7A1.5 1.5 0 1 1 7 5.5A1.5 1.5 0 0 1 5.5 7z"/></svg>';
+        }
+
+        if (raw.toLowerCase().startsWith('outside://') || this.isExternalDomain(clean)) {
+            const host = clean.split('/')[0].split('?')[0] || clean;
+            const src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=32`;
+            return `<img class="gx-tab-favicon" src="${src}" alt="favicon">`;
+        }
+
+        return '<svg class="gx-tab-favicon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2z"/></svg>';
+    },
+
+    syncNativeContentForTab(tab) {
+        if (!tab || !window.chrome || !window.chrome.webview) return;
+
+        const rawUrl = (tab.url || '').trim();
+        const isOutside = rawUrl.toLowerCase().startsWith('outside://');
+
+        if (!isOutside) {
+            window.chrome.webview.postMessage({ action: 'returnToIntranet' });
+            return;
+        }
+
+        const cleanDomain = rawUrl.replace(/^outside:\/\//i, '').trim();
+        if (!cleanDomain) {
+            window.chrome.webview.postMessage({ action: 'returnToIntranet' });
+            return;
+        }
+
+        const targetUrl = /^https?:\/\//i.test(cleanDomain) ? cleanDomain : `https://${cleanDomain}`;
+        this.initViewportObserver();
+        window.chrome.webview.postMessage({
+            action: 'crossHakureiBarrier',
+            url: targetUrl
+        });
     },
 
     getTabTitleFromUrl(url) {
@@ -127,8 +182,8 @@ Object.assign(GensokyoApp, {
     },
 
     initViewportObserver() {
-        const viewport = document.getElementById('th-viewport');
-        if (!viewport || !window.chrome || !window.chrome.webview) return;
+        const target = document.querySelector('.gx-viewport-wrapper') || document.getElementById('th-viewport');
+        if (!target || !window.chrome || !window.chrome.webview) return;
 
         if (this._viewportObserver) {
             this._viewportObserver.disconnect();
@@ -148,7 +203,7 @@ Object.assign(GensokyoApp, {
                 });
             }
         });
-        this._viewportObserver.observe(viewport);
+        this._viewportObserver.observe(target);
     },
 
     navigate(fullUrl, forceCross = false) {
@@ -201,6 +256,7 @@ Object.assign(GensokyoApp, {
         this.renderRoute(normalizedUrl);
         this.updateSidebarActiveState(normalizedUrl);
         this.initViewportObserver();
+        this.syncBookmarkButtonUI();
     },
 
     proceedCrossHakureiBarrier(externalDomain) {
@@ -221,6 +277,7 @@ Object.assign(GensokyoApp, {
         }
 
         if (window.chrome && window.chrome.webview) {
+            this.initViewportObserver();
             window.chrome.webview.postMessage({
                 action: 'crossHakureiBarrier',
                 url: targetUrl
@@ -228,28 +285,27 @@ Object.assign(GensokyoApp, {
             this.renderTabsBar();
             this.updateUrlInput(normalizedUrl);
             this.updateSidebarActiveState(normalizedUrl);
+            this.syncBookmarkButtonUI();
             return;
         }
 
-        const wrapperEl = document.querySelector('.gx-viewport-wrapper');
+        // En modo navegador web (sin bridge nativo), muchos sitios externos bloquean iframes por XFO/CSP.
+        // Abrimos en pestaña nueva para garantizar acceso real al destino.
+        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+
         const viewport = document.getElementById('th-viewport');
-
         if (viewport) {
-            viewport.classList.add('full-width');
-            if (wrapperEl) wrapperEl.classList.add('full-bleed');
-
             viewport.innerHTML = `
-                <div style="width: 100%; height: 100%; position: relative; background: #ffffff;">
-                    <div style="background: #1c0308; color: #ffffff; padding: 6px 16px; font-size: 0.82rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--th-crimson);">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="color: #ff9800; font-weight: bold;">OUTSIDE://</span>
-                            <span style="color: #ffffff; font-family: monospace;">${this.escapeHtml(targetUrl)}</span>
-                        </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="gx-btn-go" style="padding: 3px 10px; font-size: 0.75rem; background: var(--th-crimson);" onclick="window.open('${this.escapeHtml(targetUrl)}', '_blank', 'noopener,noreferrer')">Abrir en Pestaña Directa ➔</button>
-                        </div>
+                <div class="th-card" style="max-width: 700px; margin: 40px auto; text-align: center; border: 2px solid var(--th-crimson);">
+                    <h2 class="th-card-title" style="color: var(--th-crimson); margin-bottom: 10px;">Sitio externo abierto en pestaña nueva</h2>
+                    <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 18px; color: var(--th-text-sub);">
+                        Este modo web no puede embeber varios sitios del Mundo Exterior por restricciones de seguridad del propio sitio destino (X-Frame-Options / CSP).<br>
+                        Se abrió el enlace directamente para que puedas navegar sin bloqueo.
+                    </p>
+                    <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                        <button class="gx-btn-go" onclick="window.open('${this.escapeHtml(targetUrl)}', '_blank', 'noopener,noreferrer')">Abrir de nuevo ➔</button>
+                        <button class="gx-btn-go" style="background: var(--th-bg-main); border: 1px solid var(--th-border-warm); color: var(--th-text-main);" onclick="GensokyoApp.navigate('gensokyo://home')">Volver a GensokyoNet</button>
                     </div>
-                    <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals" src="${this.escapeHtml(targetUrl)}" style="width:100%; height:calc(100% - 32px); border:none; background:#ffffff; display:block;"></iframe>
                 </div>
             `;
         }
@@ -257,6 +313,34 @@ Object.assign(GensokyoApp, {
         this.renderTabsBar();
         this.updateUrlInput(normalizedUrl);
         this.updateSidebarActiveState(normalizedUrl);
+        this.syncBookmarkButtonUI();
+    },
+
+    updateExternalUrlFromNative(currentUrl) {
+        if (!currentUrl || typeof currentUrl !== 'string') return;
+
+        const activeTab = this.getActiveTab();
+        if (!activeTab) return;
+
+        const clean = currentUrl.replace(/^(https?:\/\/)/i, '').trim();
+        const normalized = `outside://${clean}`;
+
+        activeTab.url = normalized;
+        this.updateUrlInput(normalized);
+        this.syncBookmarkButtonUI();
+    },
+
+    updateExternalTitleFromNative(title) {
+        if (typeof title !== 'string') return;
+
+        const activeTab = this.getActiveTab();
+        if (!activeTab) return;
+
+        const nextTitle = title.trim();
+        if (!nextTitle) return;
+
+        activeTab.title = nextTitle;
+        this.renderTabsBar();
     },
 
     updateUrlInput(url) {
@@ -303,6 +387,8 @@ Object.assign(GensokyoApp, {
         this.renderTabsBar();
         this.updateUrlInput(prevUrl);
         this.renderRoute(prevUrl);
+        this.syncNativeContentForTab(tab);
+        this.syncBookmarkButtonUI();
     },
 
     navigateForward() {
@@ -316,11 +402,16 @@ Object.assign(GensokyoApp, {
         this.renderTabsBar();
         this.updateUrlInput(nextUrl);
         this.renderRoute(nextUrl);
+        this.syncNativeContentForTab(tab);
+        this.syncBookmarkButtonUI();
     },
 
     reloadPage() {
         const tab = this.getActiveTab();
-        if (tab) this.renderRoute(tab.url);
+        if (!tab) return;
+        this.renderRoute(tab.url);
+        this.syncNativeContentForTab(tab);
+        this.syncBookmarkButtonUI();
     },
 
     /* VERIFICACIÓN PREVIA DE CONEXIÓN A SERVIDORES LOCALHOST (PING SALVAGUARDA) */
@@ -345,6 +436,21 @@ Object.assign(GensokyoApp, {
         try {
             // Parsea en documento inerte para evitar ejecutar/renderizar contenido no confiable.
             const parsed = new DOMParser().parseFromString(cleanStr, 'text/html');
+            const hasAppBootstrapSignals = !!parsed.querySelector([
+                'script[src]',
+                'script[type="module"]',
+                'link[rel="stylesheet"]',
+                '#app',
+                '#root',
+                '[data-app]',
+                '[data-root]'
+            ].join(','));
+
+            // Evita falso "en construcción" para apps SPA que pintan todo por JS en runtime.
+            if (hasAppBootstrapSignals) {
+                return false;
+            }
+
             const root = parsed.body || parsed;
 
             root.querySelectorAll('script, style, meta, link, template, noscript').forEach((el) => el.remove());
@@ -352,14 +458,17 @@ Object.assign(GensokyoApp, {
             const hasVisualMedia = root.querySelector('img, video, canvas, svg, iframe, audio, input, button, select, a, p, h1, h2, h3, h4, h5, h6, table, form, article, section, header, footer');
             const visibleTextLength = root.textContent ? root.textContent.trim().length : 0;
 
-            return !hasVisualMedia && visibleTextLength < 5;
+            // Algunos esqueletos válidos usan solo contenedores (div/main) y estilos mínimos.
+            const hasStructuralContainers = root.querySelector('main, nav, aside, div[class], div[id]');
+
+            return !hasVisualMedia && !hasStructuralContainers && visibleTextLength < 5;
         } catch (err) {
             return cleanStr.length < 5;
         }
     },
 
-    /* CAPA DE RESOLUCIÓN API DE DOMINIOS (DESACOPLAMIENTO DEL BUCKET) */
-    resolveDomainRoute(path) {
+    /* CAPA LOCAL DE RESOLUCIÓN DE DOMINIOS (FALLBACK OFFLINE) */
+    resolveDomainRouteLocal(path) {
         const seedSite = GensokyoSeedData.domains[path];
         if (seedSite) {
             return {
@@ -412,7 +521,19 @@ Object.assign(GensokyoApp, {
         return null;
     },
 
-    renderRoute(fullUrl) {
+    /* CAPA UNIVERSAL: PRIORIZA REGISTRO CENTRAL Y CAE A LOCAL SI FALLA */
+    async resolveDomainRoute(path) {
+        const remoteRoute = this.resolveDomainRouteRemote ? await this.resolveDomainRouteRemote(path) : null;
+        if (remoteRoute) {
+            return remoteRoute;
+        }
+        return this.resolveDomainRouteLocal(path);
+    },
+
+    async renderRoute(fullUrl) {
+        const renderToken = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        this._latestRouteRenderToken = renderToken;
+
         const wrapperEl = document.querySelector('.gx-viewport-wrapper');
         const viewport = document.getElementById('th-viewport');
         if (!viewport) return;
@@ -513,7 +634,11 @@ Object.assign(GensokyoApp, {
         }
 
         // RESOLUCIÓN DE RUTAS MEDIANTE CAPA API DESACOPLADA (EDGE TO EDGE)
-        const routeInfo = this.resolveDomainRoute(path);
+        const routeInfo = await this.resolveDomainRoute(path);
+
+        if (this._latestRouteRenderToken !== renderToken) {
+            return;
+        }
 
         if (routeInfo) {
             if (routeInfo.isPrivateBlocked) {

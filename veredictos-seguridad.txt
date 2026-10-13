@@ -1,102 +1,112 @@
 VEREDICTOS DE SEGURIDAD - GENSOKYONET
-Fecha: 2026-07-23
+Fecha: 2026-08-03
 
 Resumen ejecutivo
-- Diagnosticos correctos principales: SI
-- Falsos positivos detectados: SI (2)
-- Prioridad de correccion: Alta (hay 2 criticos)
+- Estado general: sin hallazgos criticos activos confirmados en la revision actual.
+- Prioridad de correccion: MEDIA (riesgos residuales de arquitectura y hardening UI).
+- Cambios recientes auditados: bridge WebView2 endurecido, sync de assets, modales nativos login/register, shortcuts globales y favoritos/bookmarks.
+- Resultado de validacion: suite security Playwright en verde (7/7).
 
 ==================================================
-1) VEREDICTO GENERAL DE LOS PUNTOS DISCUTIDOS
+1) VEREDICTO GENERAL ACTUALIZADO
 ==================================================
 
 Punto A) "XSS por HTML de usuarios inyectado directo al DOM principal"
-Veredicto: PARCIAL / MAL PLANTEADO
-- No aplica tal cual para sitios de usuario, porque esos se renderizan en iframe con sandbox.
-- El escenario de robo directo de window.GensokyoApp desde html de usuario no coincide con la ruta real de renderizado actual.
-- Si existe innerHTML directo para contenido seed (estatico del repo), pero ese es otro modelo de riesgo.
+Veredicto: PARCIAL / AJUSTADO
+- Se mantiene correcto: los user sites no se inyectan directos al DOM principal; se renderizan por rutas controladas.
+- Riesgo residual real: persisten handlers inline en vistas internas (incluyendo UI dinamica de favoritos), por lo que sigue existiendo superficie de JS embebido en atributos.
 
 Punto B) "Falta llave de cierre en app.js"
 Veredicto: FALSO POSITIVO
-- El objeto esta correctamente cerrado.
+- No aplica en la version actual.
 
 Punto C) "Limite de localStorage / QuotaExceededError"
-Veredicto: CORRECTO
-- Riesgo real de romper guardados al crecer datos/versiones.
+Veredicto: MITIGADO PARCIALMENTE
+- Existen try/catch defensivos en guardados clave (cuentas/pasaporte/favoritos).
+- Residual: almacenamiento sigue siendo localStorage-first sin politica completa de degradacion/eviccion.
 
 Punto D) "Contrasenas en texto plano"
-Veredicto: CORRECTO
-- Se guardan en claro y son exfiltrables ante XSS o acceso local al storage.
+Veredicto: CORREGIDO (CON RESIDUAL)
+- Registro/login usa hash SHA-256 y migracion de cuentas legacy al autenticarse.
+- Residual: cuentas antiguas en texto plano persisten hasta pasar por login/migracion.
 
 ==================================================
-2) HALLAZGOS CONFIRMADOS (ORDENADOS POR SEVERIDAD)
+2) ESTADO DE HALLAZGOS (ORDENADOS POR SEVERIDAD)
 ==================================================
 
-[CRITICO] 1. XSS en busqueda por handlers inline con datos de usuario
-- Estado: CONFIRMADO
-- Impacto: ejecucion arbitraria de JS al interactuar con tabs de resultados.
-- Motivo tecnico: escapeHtml no protege contexto JavaScript embebido dentro de atributos onclick.
+[ALTO] 1. Modelo de seguridad client-side como autoridad
+- Estado: ABIERTO (POR DISENO DE PROTOTIPO)
+- Impacto: cliente comprometido puede alterar permisos/tokens localmente.
+- Nota: limite estructural sin backend de autoridad.
 
-[CRITICO] 2. Contrasenas en texto plano en storage del navegador
-- Estado: CONFIRMADO
-- Impacto: exposicion total de credenciales de cuentas locales.
-- Agravante: se combina muy mal con el XSS anterior.
+[MEDIO] 2. Riesgo residual en XSS de UI por handlers inline
+- Estado: MITIGADO PARCIALMENTE
+- Situacion actual: hay reduccion de superficie (normalizacion de URL, escapeHtml, tests de seguridad en verde), pero continua el patron inline en multiples vistas.
+- Recomendacion: migrar a listeners declarativos (addEventListener + data-attributes) y evitar construccion HTML con eventos embebidos.
 
-[ALTO] 3. Autorizacion por username (identidad debil) ademas de ownerId
-- Estado: CONFIRMADO
-- Impacto: bypass logico de ownership en ciertos escenarios (ej. nombres ambiguos/reservados).
-- Recomendacion: usar solo ownerId como fuente de verdad para permisos.
+[MEDIO] 3. Password hashing sin KDF resistente (SHA-256 directo)
+- Estado: ABIERTO
+- Impacto: mejor que texto plano, pero debil ante cracking offline comparado con Argon2id/scrypt/PBKDF2 + salt.
+- Recomendacion: incorporar salt por cuenta y KDF robusta.
 
-[ALTO] 4. Deteccion localhost por includes + iframe local sin sandbox
-- Estado: CONFIRMADO
-- Impacto: bypass de flujo de barrera y carga de origen externo sin aislamiento esperado.
-- Recomendacion: parseo estricto de URL/hostname y sandbox consistente.
+[MEDIO] 4. Persistencia local y cuota
+- Estado: MITIGADO PARCIALMENTE
+- Mejora: control de errores en guardado.
+- Residual: falta migracion a IndexedDB y estrategia de eviccion/versionado de datos.
 
-[MEDIO] 5. Reverse tabnabbing en enlaces target="_blank"
-- Estado: CONFIRMADO
-- Impacto: ventana externa puede manipular opener.
-- Recomendacion: agregar rel="noopener noreferrer".
-
-[MEDIO] 6. Riesgo de QuotaExceededError sin manejo defensivo
-- Estado: CONFIRMADO
-- Impacto: fallos silenciosos o perdida de operatividad al guardar.
-- Recomendacion: try/catch, estrategia de degradacion y migracion a IndexedDB.
-
-[MEDIO] 7. Token "OAuth" predecible
-- Estado: CONFIRMADO
-- Impacto: no funciona como secreto real.
-- Recomendacion: generar tokens aleatorios criptograficamente fuertes y validarlos server-side.
-
-[MEDIO/BAJO] 8. Riesgo adicional de inyeccion persistente por avatarUrl en innerHTML
-- Estado: CONFIRMADO COMO RIESGO
-- Impacto: si avatarUrl es manipulado (tampering/XSS previo), puede reinyectarse en UI.
-- Recomendacion: setear atributos via API DOM (element.src) y validar esquema permitido.
+[MEDIO/BAJO] 5. Superficies de renderizado de avatar/URL
+- Estado: MITIGADO
+- Mejora: validaciones y fallback seguro implementados.
+- Residual: mantener allowlist estricta y no ampliar esquemas sin necesidad.
 
 ==================================================
-3) FALSOS POSITIVOS / AJUSTES DE CONTEXTO
+3) WEBVIEW2 NATIVO (VEREDICTO)
 ==================================================
 
-[FALSO POSITIVO] A. "Falta }; en app.js"
-- No corresponde en la version auditada.
+[CORREGIDO] A. Inyeccion C# -> JS por interpolacion cruda
+- Mejora: datos serializados con JsonSerializer antes de ExecuteScriptAsync.
 
-[AJUSTE DE CONTEXTO] B. "HTML de usuarios directo al DOM"
-- La ruta de user sites ya usa iframe sandbox.
-- El innerHTML directo observado corresponde a seed estatico, no a upload de usuario runtime.
+[CORREGIDO] B. Parseo inseguro/inestable de WebMessage
+- Mejora: lectura por WebMessageAsJson + parseo JSON controlado.
 
-==================================================
-4) ORDEN RECOMENDADO DE PATCHES
-==================================================
+[CORREGIDO] C. Navegacion externa por esquemas peligrosos desde bridge
+- Mejora: allowlist estricta de http/https para crossHakureiBarrier.
 
-1. Quitar inline onclick dinamico en busqueda (migrar a addEventListener).
-2. Cortar autorizacion por username (ownerId only + nombres reservados).
-3. Endurecer localhost (validacion estricta) y sandbox en iframes correspondientes.
-4. Agregar rel noopener noreferrer en target _blank.
-5. Manejo robusto de cuota + plan de migracion de storage pesado a IndexedDB.
+[CORREGIDO] D. Escape del shell a dominios externos
+- Mejora: NavigationStarting bloquea fuera de host virtual esperado y NewWindowRequested se maneja defensivamente.
 
 ==================================================
-5) NOTA IMPORTANTE DE ALCANCE
+4) HALLAZGOS CERRADOS (HISTORICO)
 ==================================================
 
-- Este proyecto usa auth y autorizacion client-side para demo/prototipo.
-- En produccion, ownership, permisos y tokens deben validarse en backend.
-- El cliente nunca debe ser la fuente final de autoridad de seguridad.
+1. Password plaintext: CERRADO (con residual legacy hasta migracion por login).
+2. OwnerId vs username para ownership: CERRADO en rutas auditadas.
+3. Deteccion de localhost por includes: CERRADO (parseo por URL/hostname).
+4. Reverse tabnabbing en flujo principal de barrera: CERRADO.
+5. Token fijo/predicible: CERRADO (token aleatorio con Web Crypto).
+
+==================================================
+5) RESULTADOS DE PRUEBAS DE SEGURIDAD
+==================================================
+
+- Comando: npm run test:security
+- Fecha de ejecucion: 2026-08-03
+- Resultado: 7 passed (sin regresiones detectadas en la suite actual).
+
+==================================================
+6) ORDEN RECOMENDADO DE SIGUIENTES PATCHES
+==================================================
+
+1. Migrar handlers inline restantes a listeners declarativos (prioridad inmediata).
+2. Reemplazar SHA-256 directo por KDF con salt por cuenta (Argon2id/PBKDF2/scrypt).
+3. Definir estrategia de datos: IndexedDB + manejo de cuota/eviccion.
+4. Agregar versionado de esquema para forzar migracion de cuentas legacy.
+5. Mantener Playwright de seguridad como gate obligatorio pre-release.
+
+==================================================
+7) NOTA DE ALCANCE
+==================================================
+
+- Proyecto cliente-centrico (demo/prototipo).
+- En produccion: autenticacion, ownership, permisos y tokens deben validarse server-side.
+- El cliente no debe ser la fuente final de autoridad de seguridad.

@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Security checks for GensokyoNet",
   "scripts": {
+    "sync:wwwroot": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/sync-wwwroot.ps1",
     "test:security": "playwright test tests/security --project=firefox",
     "test:security:headed": "playwright test tests/security --project=firefox --headed",
     "test:security:ui": "playwright test tests/security --ui"
