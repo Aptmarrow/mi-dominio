@@ -35,6 +35,23 @@ namespace GensokyoNetApp
             this.StartPosition = FormStartPosition.CenterScreen;
         }
 
+        private static bool IsTrustedShellUri(string? rawUri)
+        {
+            if (!Uri.TryCreate(rawUri, UriKind.Absolute, out var uri)) return false;
+            return uri.Scheme == Uri.UriSchemeHttps &&
+                   string.Equals(uri.Host, "gensokyonet.local", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsAllowedExternalUri(string? rawUri, out Uri? parsedUri)
+        {
+            parsedUri = null;
+            if (!Uri.TryCreate(rawUri, UriKind.Absolute, out var candidate)) return false;
+            if (candidate.Scheme != Uri.UriSchemeHttp && candidate.Scheme != Uri.UriSchemeHttps) return false;
+            if (string.Equals(candidate.Host, "gensokyonet.local", StringComparison.OrdinalIgnoreCase)) return false;
+            parsedUri = candidate;
+            return true;
+        }
+
         private async void InitializeWebViews()
         {
             try
@@ -42,7 +59,7 @@ namespace GensokyoNetApp
                 var dataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GensokyoNetWebViewData");
                 var env = await CoreWebView2Environment.CreateAsync(null, dataPath);
 
-                // 1. Inicializar Content WebView2 (Visor Flotante de Navegación Externa) - Arranca Oculto
+                // 1. Content WebView2 (Mundo Exterior aislado)
                 contentWebView = new WebView2
                 {
                     Visible = false,
@@ -51,12 +68,36 @@ namespace GensokyoNetApp
                 this.Controls.Add(contentWebView);
                 await contentWebView.EnsureCoreWebView2Async(env);
 
-                // 2. Inicializar Shell WebView2 (UI Completa de GensokyoNet) - Dock Fill
+                // Hardening del visor externo: sin acceso a WebMessage ni objetos COM nativos
+                contentWebView.CoreWebView2.Settings.IsWebMessageEnabled = false;
+                contentWebView.CoreWebView2.Settings.AreHostObjectsAllowed = false;
+                contentWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+
+                contentWebView.CoreWebView2.NavigationStarting += (s, args) =>
+                {
+                    if (!IsAllowedExternalUri(args.Uri, out _))
+                    {
+                        args.Cancel = true;
+                    }
+                };
+
+                contentWebView.CoreWebView2.NewWindowRequested += (s, args) =>
+                {
+                    args.Handled = true;
+                    if (IsAllowedExternalUri(args.Uri, out var targetUri) && targetUri != null)
+                    {
+                        contentWebView.CoreWebView2.Navigate(targetUri.ToString());
+                    }
+                };
+
+                // 2. Shell WebView2 (Intranet UI privilegiada)
                 shellWebView = new WebView2 { Dock = DockStyle.Fill };
                 this.Controls.Add(shellWebView);
                 await shellWebView.EnsureCoreWebView2Async(env);
 
-                // Mapeo de Host Virtual Seguro (https://gensokyonet.local)
+                shellWebView.CoreWebView2.Settings.AreHostObjectsAllowed = false;
+                shellWebView.CoreWebView2.Settings.IsWebMessageEnabled = true;
+
                 string wwwrootPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
                 if (!Directory.Exists(wwwrootPath))
                 {
@@ -64,28 +105,25 @@ namespace GensokyoNetApp
                 }
 
                 shellWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
-                    "gensokyonet.local", wwwrootPath, CoreWebView2HostResourceAccessKind.Allow);
+                    "gensokyonet.local", wwwrootPath, CoreWebView2HostResourceAccessKind.DenyCors);
 
-                // 🔒 Defensa en Profundidad: Bloquear cualquier navegación del Shell fuera del host virtual
+                // Validación estricta de Host (evita bypass gensokyonet.local.attacker.com)
                 shellWebView.CoreWebView2.NavigationStarting += (s, args) =>
                 {
-                    if (!args.Uri.StartsWith("https://gensokyonet.local", StringComparison.OrdinalIgnoreCase))
+                    if (!IsTrustedShellUri(args.Uri))
                     {
                         System.Diagnostics.Debug.WriteLine($"[DEFENSA EN PROFUNDIDAD] Bloqueada navegación fuera de gensokyonet.local: {args.Uri}");
                         args.Cancel = true;
                     }
                 };
 
-                // Bloquear ventanas independientes sueltas del Shell
                 shellWebView.CoreWebView2.NewWindowRequested += (s, args) =>
                 {
                     args.Handled = true;
                 };
 
-                // Navegar el Shell al Host Virtual Seguro
                 shellWebView.Source = new Uri("https://gensokyonet.local/index.html");
 
-                // Suscribir los eventos del Puente WebMessage (JS ↔ C#)
                 shellWebView.CoreWebView2.WebMessageReceived += OnShellWebMessageReceived;
                 contentWebView.CoreWebView2.SourceChanged += OnContentSourceChanged;
                 contentWebView.CoreWebView2.DocumentTitleChanged += OnContentTitleChanged;
@@ -100,6 +138,9 @@ namespace GensokyoNetApp
         {
             try
             {
+                // Verificar que el mensaje provenga exclusivamente del origen del Shell
+                if (!IsTrustedShellUri(e.Source)) return;
+
                 string jsonMessage = e.WebMessageAsJson;
                 if (string.IsNullOrWhiteSpace(jsonMessage)) return;
 
@@ -113,7 +154,6 @@ namespace GensokyoNetApp
                 switch (action)
                 {
                     case "viewportRectChanged":
-                        // Ajusta dinámicamente las coordenadas del contentWebView al rectángulo de #th-viewport
                         if (root.TryGetProperty("rect", out var rectProp))
                         {
                             int x = Math.Max(0, (int)Math.Round(rectProp.GetProperty("x").GetDouble()));
@@ -130,16 +170,8 @@ namespace GensokyoNetApp
 
                     case "crossHakureiBarrier":
                         if (!root.TryGetProperty("url", out var urlProp)) return;
-                        string? targetUrl = urlProp.GetString();
-                        if (string.IsNullOrWhiteSpace(targetUrl)) return;
+                        if (!IsAllowedExternalUri(urlProp.GetString(), out var parsedUri) || parsedUri == null) return;
 
-                        if (!Uri.TryCreate(targetUrl, UriKind.Absolute, out var parsedUri) ||
-                            (parsedUri.Scheme != Uri.UriSchemeHttp && parsedUri.Scheme != Uri.UriSchemeHttps))
-                        {
-                            return;
-                        }
-
-                        // Muestra el contentWebView sobre el área de #th-viewport y navega top-level
                         if (contentWebView?.CoreWebView2 != null)
                         {
                             contentWebView.Visible = true;
@@ -149,7 +181,8 @@ namespace GensokyoNetApp
                         break;
 
                     case "returnToIntranet":
-                        // Oculta el contentWebView al volver a la intranet de GensokyoNet
+                    case "suspendExternalViewport":
+                        // También oculta contentWebView cuando se abren modales HTML del Shell para evitar solapamiento Z-order
                         if (contentWebView != null)
                         {
                             contentWebView.Visible = false;
@@ -158,6 +191,7 @@ namespace GensokyoNetApp
 
                     case "openModal":
                         if (!root.TryGetProperty("modalType", out var modalTypeProp)) return;
+                        if (contentWebView != null) contentWebView.Visible = false;
                         OpenNativeModalDialog(modalTypeProp.GetString() ?? "modal");
                         break;
                 }

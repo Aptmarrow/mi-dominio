@@ -43,6 +43,7 @@ const GensokyoApp = {
         this.loadSecurityConfig();
         this.loadHakureiPolicy();
         this.loadBookmarks();
+        this.loadSidebarState();
 
         const urlInput = document.getElementById('th-url-input');
         if (urlInput) {
@@ -80,6 +81,13 @@ const GensokyoApp = {
                     input.focus();
                     input.select();
                 }
+                return;
+            }
+
+            if (e.ctrlKey && key === 'b') {
+                e.preventDefault();
+                this.toggleMainSidebar();
+                return;
             }
         });
 
@@ -87,6 +95,51 @@ const GensokyoApp = {
         this.updateDomainCount();
         this.updatePassportUI();
         this.syncBookmarkButtonUI();
+    },
+
+    toggleMainSidebar() {
+        const sidebar = document.querySelector('.gx-sidebar');
+        if (!sidebar) return;
+        const willCollapse = !sidebar.classList.contains('collapsed');
+        this.setSidebarCollapsed(willCollapse);
+    },
+
+    setSidebarCollapsed(collapsed) {
+        const sidebar = document.querySelector('.gx-sidebar');
+        const navToggleBtn = document.getElementById('gx-sidebar-toggle-btn');
+        const floatingTab = document.getElementById('gx-sidebar-floating-tab');
+        if (!sidebar) return;
+
+        this.isSidebarCollapsed = collapsed;
+        sidebar.classList.toggle('collapsed', collapsed);
+
+        if (collapsed) {
+            sidebar.style.setProperty('display', 'none', 'important');
+            if (floatingTab) floatingTab.style.display = 'flex';
+        } else {
+            sidebar.style.removeProperty('display');
+            if (floatingTab) floatingTab.style.display = 'none';
+        }
+
+        if (navToggleBtn) {
+            navToggleBtn.classList.toggle('active', collapsed);
+            navToggleBtn.title = collapsed ? 'Mostrar barra lateral (Ctrl+B)' : 'Ocultar barra lateral (Ctrl+B)';
+        }
+
+        try {
+            localStorage.setItem('gensokyo_sidebar_collapsed', collapsed ? '1' : '0');
+        } catch (e) {}
+
+        window.dispatchEvent(new Event('resize'));
+    },
+
+    loadSidebarState() {
+        try {
+            const saved = localStorage.getItem('gensokyo_sidebar_collapsed');
+            if (saved === '1') {
+                this.setSidebarCollapsed(true);
+            }
+        } catch (e) {}
     },
 
     loadBookmarks() {
@@ -195,27 +248,48 @@ const GensokyoApp = {
         document.getElementById('th-bookmarks-modal')?.classList.add('hidden');
     },
 
+    /* 1. RENDERIZADO DE FAVORITOS SIN HANDLERS INLINE NI ESCAPE DE COMILLAS */
     renderBookmarksList() {
         const listEl = document.getElementById('th-bookmarks-list');
         if (!listEl) return;
+        listEl.innerHTML = '';
 
         if (!this.bookmarks.length) {
-            listEl.innerHTML = '<p style="color:var(--th-text-sub);">Todavía no guardaste favoritos.</p>';
+            const emptyMsg = document.createElement('p');
+            emptyMsg.style.color = 'var(--th-text-sub)';
+            emptyMsg.textContent = 'Todavía no guardaste favoritos.';
+            listEl.appendChild(emptyMsg);
             return;
         }
 
-        listEl.innerHTML = this.bookmarks.map((b) => {
-            const encodedUrl = encodeURIComponent(b.url);
-            return `
-            <div class="gx-bookmark-item">
-                <button class="gx-bookmark-open" onclick="GensokyoApp.openBookmark(decodeURIComponent('${encodedUrl}'))">
-                    <span class="gx-bookmark-title">${this.escapeHtml(b.title)}</span>
-                    <span class="gx-bookmark-url">${this.escapeHtml(b.url)}</span>
-                </button>
-                <button class="gx-bookmark-delete" onclick="GensokyoApp.removeBookmark(decodeURIComponent('${encodedUrl}'))">✕</button>
-            </div>
-        `;
-        }).join('');
+        this.bookmarks.forEach((b) => {
+            const item = document.createElement('div');
+            item.className = 'gx-bookmark-item';
+
+            const openBtn = document.createElement('button');
+            openBtn.type = 'button';
+            openBtn.className = 'gx-bookmark-open';
+            openBtn.addEventListener('click', () => this.openBookmark(b.url));
+
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'gx-bookmark-title';
+            titleSpan.textContent = b.title;
+
+            const urlSpan = document.createElement('span');
+            urlSpan.className = 'gx-bookmark-url';
+            urlSpan.textContent = b.url;
+
+            openBtn.append(titleSpan, urlSpan);
+
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'gx-bookmark-delete';
+            delBtn.textContent = '✕';
+            delBtn.addEventListener('click', () => this.removeBookmark(b.url));
+
+            item.append(openBtn, delBtn);
+            listEl.appendChild(item);
+        });
     },
 
     loadAccountsDB() {
@@ -362,15 +436,29 @@ const GensokyoApp = {
         }
     },
 
+    /* 2. HEADERS DE AUTENTICACIÓN SIN ENVIAR TOKENS PLACEHOLDER DE INVITADO */
     getRemoteAuthHeaders() {
-        const headers = {
-            'Content-Type': 'application/json'
-        };
+        const headers = { 'Content-Type': 'application/json' };
         const token = this.passport && this.passport.oauthToken ? String(this.passport.oauthToken).trim() : '';
-        if (token) {
+        const isPlaceholder = token.includes('0000_nameless_youkai');
+        if (token && this.passport.isRegistered && !isPlaceholder) {
             headers.Authorization = `Bearer ${token}`;
         }
         return headers;
+    },
+
+    /* 3. VALIDACIÓN ESTRICTA DE CONTENT_URL REMOTO (ANTI-SSRF) */
+    isAllowedRemoteContentUrl(rawUrl) {
+        if (!rawUrl || typeof rawUrl !== 'string') return false;
+        try {
+            const parsed = new URL(rawUrl);
+            if (parsed.protocol !== 'https:') return false;
+            const apiHost = new URL(this.remoteRegistry.apiBase).hostname.toLowerCase();
+            const targetHost = parsed.hostname.toLowerCase();
+            return targetHost === apiHost || targetHost.endsWith(`.${apiHost}`);
+        } catch {
+            return false;
+        }
     },
 
     normalizeRemoteRoutePayload(payload, domainName) {
@@ -453,7 +541,7 @@ const GensokyoApp = {
             }
 
             let htmlContent = normalized.htmlContent;
-            if (!htmlContent && normalized.contentUrl) {
+            if (!htmlContent && this.isAllowedRemoteContentUrl(normalized.contentUrl)) {
                 try {
                     const contentResponse = await this.fetchWithTimeout(normalized.contentUrl, {
                         method: 'GET'

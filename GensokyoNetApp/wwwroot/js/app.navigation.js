@@ -568,7 +568,7 @@ Object.assign(GensokyoApp, {
             }
         }
 
-        const isFullWidthRoute = this.isLocalhostDomain(path) || (path.includes('.') && !path.startsWith('search'));
+        const isFullWidthRoute = this.isLocalhostDomain(path) || path === 'builder' || (path.includes('.') && !path.startsWith('search'));
 
         if (isFullWidthRoute) {
             viewport.classList.add('full-width');
@@ -598,7 +598,11 @@ Object.assign(GensokyoApp, {
         }
 
         if (path === 'builder') {
-            viewport.innerHTML = this.getBuilderView();
+            if (typeof this.renderSiteBuilder === 'function') {
+                this.renderSiteBuilder(this.builderSelectedDomain);
+            } else {
+                viewport.innerHTML = this.getBuilderView();
+            }
             return;
         }
 

@@ -43,6 +43,7 @@ const GensokyoApp = {
         this.loadSecurityConfig();
         this.loadHakureiPolicy();
         this.loadBookmarks();
+        this.loadSidebarState();
 
         const urlInput = document.getElementById('th-url-input');
         if (urlInput) {
@@ -80,6 +81,13 @@ const GensokyoApp = {
                     input.focus();
                     input.select();
                 }
+                return;
+            }
+
+            if (e.ctrlKey && key === 'b') {
+                e.preventDefault();
+                this.toggleMainSidebar();
+                return;
             }
         });
 
@@ -87,6 +95,51 @@ const GensokyoApp = {
         this.updateDomainCount();
         this.updatePassportUI();
         this.syncBookmarkButtonUI();
+    },
+
+    toggleMainSidebar() {
+        const sidebar = document.querySelector('.gx-sidebar');
+        if (!sidebar) return;
+        const willCollapse = !sidebar.classList.contains('collapsed');
+        this.setSidebarCollapsed(willCollapse);
+    },
+
+    setSidebarCollapsed(collapsed) {
+        const sidebar = document.querySelector('.gx-sidebar');
+        const navToggleBtn = document.getElementById('gx-sidebar-toggle-btn');
+        const floatingTab = document.getElementById('gx-sidebar-floating-tab');
+        if (!sidebar) return;
+
+        this.isSidebarCollapsed = collapsed;
+        sidebar.classList.toggle('collapsed', collapsed);
+
+        if (collapsed) {
+            sidebar.style.setProperty('display', 'none', 'important');
+            if (floatingTab) floatingTab.style.display = 'flex';
+        } else {
+            sidebar.style.removeProperty('display');
+            if (floatingTab) floatingTab.style.display = 'none';
+        }
+
+        if (navToggleBtn) {
+            navToggleBtn.classList.toggle('active', collapsed);
+            navToggleBtn.title = collapsed ? 'Mostrar barra lateral (Ctrl+B)' : 'Ocultar barra lateral (Ctrl+B)';
+        }
+
+        try {
+            localStorage.setItem('gensokyo_sidebar_collapsed', collapsed ? '1' : '0');
+        } catch (e) {}
+
+        window.dispatchEvent(new Event('resize'));
+    },
+
+    loadSidebarState() {
+        try {
+            const saved = localStorage.getItem('gensokyo_sidebar_collapsed');
+            if (saved === '1') {
+                this.setSidebarCollapsed(true);
+            }
+        } catch (e) {}
     },
 
     loadBookmarks() {

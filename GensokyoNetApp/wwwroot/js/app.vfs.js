@@ -1,146 +1,398 @@
 /**
- * GensokyoVFS - Sistema de Archivos Virtual con Respaldo en IndexedDB
- * Permite almacenar y gestionar proyectos web multi-archivo completos
- * (HTML, CSS, JS, imágenes, audio y fuentes) sin limitaciones de cuota.
+ * ==========================================================================
+ * js/app.vfs.js
+ * Sistema de Archivos Virtual Jerárquico (Árbol de directorios real + I/O)
+ * Soporta carpetas anidadas, resolución de rutas relativas, Importar Carpeta/ZIP
+ * y Exportar ZIP nativo (Generador PKZIP CRC32 sin dependencias externas).
+ * ==========================================================================
  */
+(function () {
+    const normalizePath = (p) => String(p || '')
+        .replace(/\\/g, '/')
+        .replace(/^\/+|\/+$/g, '')
+        .replace(/\/{2,}/g, '/');
 
-const GensokyoVFS = {
-    dbName: 'gensokyo_net_vfs',
-    dbVersion: 1,
-    db: null,
-    memoryStore: {},
+    const splitPath = (p) => {
+        const clean = normalizePath(p);
+        return clean ? clean.split('/') : [];
+    };
 
-    async init() {
-        if (this.db) return this.db;
-        if (!window.indexedDB) {
-            console.warn('[GensokyoVFS] IndexedDB no disponible, usando memoria virtual.');
-            return null;
+    const dirname = (p) => {
+        const parts = splitPath(p);
+        parts.pop();
+        return parts.join('/');
+    };
+
+    const basename = (p) => {
+        const parts = splitPath(p);
+        return parts.pop() || '';
+    };
+
+    const extname = (p) => {
+        const base = basename(p);
+        const idx = base.lastIndexOf('.');
+        return idx > 0 ? base.slice(idx + 1).toLowerCase() : '';
+    };
+
+    const resolveRelativePath = (fromFile, relativeTarget) => {
+        if (!relativeTarget) return '';
+        if (/^(https?:|data:|blob:|gensokyo:|outside:)/i.test(relativeTarget)) return relativeTarget;
+        if (relativeTarget.startsWith('/')) return normalizePath(relativeTarget);
+
+        const baseParts = splitPath(dirname(fromFile));
+        const relParts = relativeTarget.replace(/\\/g, '/').split('/');
+
+        for (const seg of relParts) {
+            if (!seg || seg === '.') continue;
+            if (seg === '..') baseParts.pop();
+            else baseParts.push(seg);
         }
+        return baseParts.join('/');
+    };
 
-        return new Promise((resolve) => {
-            try {
-                const request = indexedDB.open(this.dbName, this.dbVersion);
+    // Tabla CRC32 para empaquetar archivos .zip estándar en memoria sin librerías
+    const CRC_TABLE = (() => {
+        const table = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+            let c = i;
+            for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+            table[i] = c >>> 0;
+        }
+        return table;
+    })();
 
-                request.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains('projects')) {
-                        db.createObjectStore('projects', { keyPath: 'domain' });
-                    }
-                };
+    const crc32 = (u8) => {
+        let crc = 0xFFFFFFFF;
+        for (let i = 0; i < u8.length; i++) {
+            crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ u8[i]) & 0xFF];
+        }
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+    };
 
-                request.onsuccess = (e) => {
-                    this.db = e.target.result;
-                    resolve(this.db);
-                };
+    const GensokyoVFS = {
+        normalizePath,
+        dirname,
+        basename,
+        extname,
+        resolveRelativePath,
 
-                request.onerror = (e) => {
-                    console.error('[GensokyoVFS] Error al abrir IndexedDB:', e);
-                    resolve(null);
-                };
-            } catch (err) {
-                console.error('[GensokyoVFS] Excepción en init:', err);
-                resolve(null);
+        createDefaultTree() {
+            return {
+                files: {
+                    'index.html': `<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Santuario Doujin</title>
+    <link rel="stylesheet" href="src/styles/main.css">
+</head>
+<body>
+    <main class="shrine-shell">
+        <span class="badge">GENSOKYONET VFS NODE</span>
+        <h1 id="title">Koumakan Studio</h1>
+        <p>Click derecho en el explorador para crear archivos/carpetas o usa <code>Ctrl+Shift+P</code>.</p>
+        <button id="action-btn">Ejecutar Spell Card</button>
+        <pre id="runtime-output"></pre>
+    </main>
+    <script src="src/app/main.js"><\/script>
+</body>
+</html>`,
+                    'src/styles/main.css': `body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: #fcf7f1;
+    color: #2b181c;
+    font-family: system-ui, sans-serif;
+}
+.shrine-shell {
+    padding: 2rem;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 2px solid #a61b32;
+    box-shadow: 0 12px 28px rgba(166, 27, 50, 0.14);
+    max-width: 480px;
+    text-align: center;
+}
+.badge {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #a61b32;
+    letter-spacing: 1px;
+}
+button {
+    margin-top: 1rem;
+    padding: 0.6rem 1.2rem;
+    background: #a61b32;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+}`,
+                    'src/app/main.js': `console.info("VFS jerárquico cargado desde src/app/main.js");
+document.getElementById('action-btn')?.addEventListener('click', () => {
+    const out = document.getElementById('runtime-output');
+    if (out) out.textContent = "Spell Card activada @ " + new Date().toLocaleTimeString();
+    console.log("Disparo registrado desde subcarpeta src/app/main.js");
+});`
+                },
+                folders: ['src', 'src/styles', 'src/app']
+            };
+        },
+
+        ensureParentFolders(vfs, filePath) {
+            const parts = splitPath(filePath);
+            parts.pop();
+            let current = '';
+            for (const part of parts) {
+                current = current ? `${current}/${part}` : part;
+                if (!vfs.folders.includes(current)) {
+                    vfs.folders.push(current);
+                }
             }
-        });
-    },
+        },
 
-    async saveProject(domain, versionTag, files, metadata = {}) {
-        await this.init();
+        upsertFile(vfs, path, content = '') {
+            const clean = normalizePath(path);
+            if (!clean) return false;
+            this.ensureParentFolders(vfs, clean);
+            vfs.files[clean] = String(content);
+            return clean;
+        },
 
-        const projectData = {
-            domain,
-            activeVersion: versionTag || 'v1',
-            updatedAt: new Date().toISOString(),
-            metadata,
-            versions: {}
-        };
+        createFolder(vfs, folderPath) {
+            const clean = normalizePath(folderPath);
+            if (!clean) return false;
+            this.ensureParentFolders(vfs, `${clean}/placeholder`);
+            if (!vfs.folders.includes(clean)) vfs.folders.push(clean);
+            return clean;
+        },
 
-        // Si ya existe proyecto, conservar versiones previas
-        const existing = await this.getProject(domain);
-        if (existing && existing.versions) {
-            projectData.versions = existing.versions;
-        }
+        deleteNode(vfs, targetPath, isFolder = false) {
+            const clean = normalizePath(targetPath);
+            if (!clean) return;
+            if (!isFolder) {
+                delete vfs.files[clean];
+                return;
+            }
+            const prefix = `${clean}/`;
+            vfs.folders = vfs.folders.filter(f => f !== clean && !f.startsWith(prefix));
+            Object.keys(vfs.files).forEach(file => {
+                if (file.startsWith(prefix)) delete vfs.files[file];
+            });
+        },
 
-        projectData.versions[versionTag] = {
-            versionTag,
-            createdAt: new Date().toISOString(),
-            fileCount: Object.keys(files).length,
-            files: files
-        };
+        renameNode(vfs, oldPath, newPath, isFolder = false) {
+            const cleanOld = normalizePath(oldPath);
+            const cleanNew = normalizePath(newPath);
+            if (!cleanOld || !cleanNew || cleanOld === cleanNew) return false;
 
-        // Respaldo en memoria
-        this.memoryStore[domain] = projectData;
+            if (!isFolder) {
+                if (!(cleanOld in vfs.files)) return false;
+                const content = vfs.files[cleanOld];
+                delete vfs.files[cleanOld];
+                this.upsertFile(vfs, cleanNew, content);
+                return cleanNew;
+            }
 
-        if (this.db) {
-            return new Promise((resolve) => {
-                try {
-                    const tx = this.db.transaction(['projects'], 'readwrite');
-                    const store = tx.objectStore('projects');
-                    const putReq = store.put(projectData);
-                    putReq.onsuccess = () => resolve(true);
-                    putReq.onerror = (err) => {
-                        console.error('[GensokyoVFS] Error al guardar en IndexedDB:', err);
-                        resolve(false);
-                    };
-                } catch (err) {
-                    console.error('[GensokyoVFS] Excepción en saveProject:', err);
-                    resolve(false);
+            const oldPrefix = `${cleanOld}/`;
+            const newPrefix = `${cleanNew}/`;
+            this.createFolder(vfs, cleanNew);
+
+            vfs.folders = vfs.folders.map(f => {
+                if (f === cleanOld) return cleanNew;
+                if (f.startsWith(oldPrefix)) return newPrefix + f.slice(oldPrefix.length);
+                return f;
+            });
+
+            Object.keys(vfs.files).forEach(f => {
+                if (f.startsWith(oldPrefix)) {
+                    const updated = newPrefix + f.slice(oldPrefix.length);
+                    this.upsertFile(vfs, updated, vfs.files[f]);
+                    delete vfs.files[f];
                 }
             });
-        }
-        return true;
-    },
+            return cleanNew;
+        },
 
-    async getProject(domain) {
-        if (this.memoryStore[domain]) {
-            return this.memoryStore[domain];
-        }
+        buildHierarchy(vfs) {
+            const root = { name: '', path: '', type: 'folder', children: {} };
 
-        await this.init();
-        if (!this.db) return null;
+            const ensureFolderNode = (folderPath) => {
+                const parts = splitPath(folderPath);
+                let cursor = root;
+                let acc = '';
+                for (const part of parts) {
+                    acc = acc ? `${acc}/${part}` : part;
+                    if (!cursor.children[part]) {
+                        cursor.children[part] = { name: part, path: acc, type: 'folder', children: {} };
+                    }
+                    cursor = cursor.children[part];
+                }
+                return cursor;
+            };
 
-        return new Promise((resolve) => {
-            try {
-                const tx = this.db.transaction(['projects'], 'readonly');
-                const store = tx.objectStore('projects');
-                const getReq = store.get(domain);
-                getReq.onsuccess = (e) => {
-                    const data = e.target.result || null;
-                    if (data) this.memoryStore[domain] = data;
-                    resolve(data);
+            (vfs.folders || []).forEach(ensureFolderNode);
+
+            Object.keys(vfs.files || {}).forEach(filePath => {
+                const folderPath = dirname(filePath);
+                const fileName = basename(filePath);
+                const parent = folderPath ? ensureFolderNode(folderPath) : root;
+                parent.children[fileName] = {
+                    name: fileName,
+                    path: filePath,
+                    type: 'file',
+                    ext: extname(filePath),
+                    size: (vfs.files[filePath] || '').length
                 };
-                getReq.onerror = () => resolve(null);
-            } catch (err) {
-                console.error('[GensokyoVFS] Excepción en getProject:', err);
-                resolve(null);
+            });
+
+            const sortNode = (node) => {
+                const list = Object.values(node.children);
+                list.sort((a, b) => {
+                    if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+                    return a.name.localeCompare(b.name);
+                });
+                list.forEach(child => {
+                    if (child.type === 'folder') child.sortedChildren = sortNode(child);
+                });
+                return list;
+            };
+
+            return sortNode(root);
+        },
+
+        async importFromFileList(fileList) {
+            const vfs = { files: {}, folders: [] };
+            const filesArray = Array.from(fileList || []);
+            if (!filesArray.length) return null;
+
+            // Si suben un único archivo .zip, descomprimirlo manteniendo estructura de carpetas
+            if (filesArray.length === 1 && filesArray[0].name.toLowerCase().endsWith('.zip')) {
+                return await this.importFromZipBuffer(await filesArray[0].arrayBuffer());
             }
-        });
-    },
 
-    async getFiles(domain, versionTag = null) {
-        const project = await this.getProject(domain);
-        if (!project || !project.versions) return null;
-        const ver = versionTag || project.activeVersion || 'v1';
-        return project.versions[ver] ? project.versions[ver].files : null;
-    },
+            // Detectar carpeta raíz común (webkitRelativePath) para quitar el prefijo externo
+            const rawPaths = filesArray.map(f => normalizePath(f.webkitRelativePath || f.name));
+            const firstSegments = rawPaths.map(p => splitPath(p)[0]).filter(Boolean);
+            const stripRoot = firstSegments.length > 0 &&
+                rawPaths.every(p => p.includes('/')) &&
+                firstSegments.every(s => s === firstSegments[0])
+                ? `${firstSegments[0]}/`
+                : '';
 
-    async deleteProject(domain) {
-        delete this.memoryStore[domain];
-        await this.init();
-        if (!this.db) return true;
+            for (let i = 0; i < filesArray.length; i++) {
+                const file = filesArray[i];
+                let relPath = normalizePath(file.webkitRelativePath || file.name);
+                if (stripRoot && relPath.startsWith(stripRoot)) {
+                    relPath = relPath.slice(stripRoot.length);
+                }
+                if (!relPath || relPath.startsWith('.git/') || relPath.includes('node_modules/')) continue;
 
-        return new Promise((resolve) => {
-            try {
-                const tx = this.db.transaction(['projects'], 'readwrite');
-                const store = tx.objectStore('projects');
-                const delReq = store.delete(domain);
-                delReq.onsuccess = () => resolve(true);
-                delReq.onerror = () => resolve(false);
-            } catch (err) {
-                resolve(false);
+                const text = await file.text();
+                this.upsertFile(vfs, relPath, text);
             }
-        });
-    }
-};
+            return vfs;
+        },
 
-window.GensokyoVFS = GensokyoVFS;
+        async importFromZipBuffer(arrayBuffer) {
+            const vfs = { files: {}, folders: [] };
+            const view = new DataView(arrayBuffer);
+            const u8 = new Uint8Array(arrayBuffer);
+            const decoder = new TextDecoder('utf-8');
+            let offset = 0;
+
+            while (offset + 30 <= view.byteLength) {
+                const sig = view.getUint32(offset, true);
+                if (sig !== 0x04034b50) break; // Local file header signature
+
+                const method = view.getUint16(offset + 8, true);
+                const compSize = view.getUint32(offset + 18, true);
+                const nameLen = view.getUint16(offset + 26, true);
+                const extraLen = view.getUint16(offset + 28, true);
+                const nameBytes = u8.subarray(offset + 30, offset + 30 + nameLen);
+                const rawName = decoder.decode(nameBytes);
+                const dataStart = offset + 30 + nameLen + extraLen;
+                const compData = u8.subarray(dataStart, dataStart + compSize);
+
+                const clean = normalizePath(rawName);
+                if (clean && !clean.startsWith('__MACOSX') && !clean.includes('node_modules/')) {
+                    if (rawName.endsWith('/')) {
+                        this.createFolder(vfs, clean);
+                    } else if (method === 0) {
+                        this.upsertFile(vfs, clean, decoder.decode(compData));
+                    } else if (method === 8 && typeof DecompressionStream !== 'undefined') {
+                        const ds = new DecompressionStream('deflate-raw');
+                        const writer = ds.writable.getWriter();
+                        writer.write(compData);
+                        writer.close();
+                        const decompressed = await new Response(ds.readable).arrayBuffer();
+                        this.upsertFile(vfs, clean, decoder.decode(new Uint8Array(decompressed)));
+                    }
+                }
+                offset = dataStart + compSize;
+            }
+            return vfs;
+        },
+
+        exportToZipBlob(vfs) {
+            const encoder = new TextEncoder();
+            const entries = Object.entries(vfs.files || {});
+            const localChunks = [];
+            const centralChunks = [];
+            let offset = 0;
+
+            for (const [path, content] of entries) {
+                const nameBytes = encoder.encode(normalizePath(path));
+                const dataBytes = encoder.encode(String(content ?? ''));
+                const crc = crc32(dataBytes);
+
+                const localHeader = new Uint8Array(30 + nameBytes.length);
+                const lv = new DataView(localHeader.buffer);
+                lv.setUint32(0, 0x04034b50, true);
+                lv.setUint16(4, 20, true);
+                lv.setUint16(6, 0x0800, true); // UTF-8 flag
+                lv.setUint16(8, 0, true);      // Store (sin compresión para máxima velocidad)
+                lv.setUint32(14, crc, true);
+                lv.setUint32(18, dataBytes.length, true);
+                lv.setUint32(22, dataBytes.length, true);
+                lv.setUint16(26, nameBytes.length, true);
+                localHeader.set(nameBytes, 30);
+
+                const centralHeader = new Uint8Array(46 + nameBytes.length);
+                const cv = new DataView(centralHeader.buffer);
+                cv.setUint32(0, 0x02014b50, true);
+                cv.setUint16(4, 20, true);
+                cv.setUint16(6, 20, true);
+                cv.setUint16(8, 0x0800, true);
+                cv.setUint16(10, 0, true);
+                cv.setUint32(16, crc, true);
+                cv.setUint32(20, dataBytes.length, true);
+                cv.setUint32(24, dataBytes.length, true);
+                cv.setUint16(28, nameBytes.length, true);
+                cv.setUint32(42, offset, true);
+                centralHeader.set(nameBytes, 46);
+
+                localChunks.push(localHeader, dataBytes);
+                centralChunks.push(centralHeader);
+                offset += localHeader.length + dataBytes.length;
+            }
+
+            const centralSize = centralChunks.reduce((acc, c) => acc + c.length, 0);
+            const eocd = new Uint8Array(22);
+            const ev = new DataView(eocd.buffer);
+            ev.setUint32(0, 0x06054b50, true);
+            ev.setUint16(8, entries.length, true);
+            ev.setUint16(10, entries.length, true);
+            ev.setUint32(12, centralSize, true);
+            ev.setUint32(16, offset, true);
+
+            return new Blob([...localChunks, ...centralChunks, eocd], { type: 'application/zip' });
+        }
+    };
+
+    window.GensokyoVFS = GensokyoVFS;
+    if (window.GensokyoApp) window.GensokyoApp.VFS = GensokyoVFS;
+})();
