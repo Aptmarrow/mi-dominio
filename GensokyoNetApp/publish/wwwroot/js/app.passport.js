@@ -51,10 +51,10 @@ Object.assign(GensokyoApp, {
         const statusBadgeEl = document.getElementById("passport-status-badge");
         if (statusBadgeEl) {
             if (this.passport.isRegistered) {
-                statusBadgeEl.innerText = "Cuenta Protegida";
+                statusBadgeEl.innerText = this.t ? this.t("passport_registered") : "Identidad Autenticada";
                 statusBadgeEl.style.color = "#2e7d32";
             } else {
-                statusBadgeEl.innerText = "Cuenta Sin Registrar";
+                statusBadgeEl.innerText = this.t ? this.t("passport_unregistered") : "Cuenta Sin Registrar";
                 statusBadgeEl.style.color = "var(--th-crimson)";
             }
         }
@@ -67,18 +67,18 @@ Object.assign(GensokyoApp, {
             const allOwned = [ ...this.passport.ownedDomains || [], ...userDomainKeys ];
             const uniqueOwned = [ ...new Set(allOwned) ];
             if (uniqueOwned.length === 0) {
-                domainListEl.innerHTML = '<p style="font-size:0.85rem; color:var(--th-text-sub);">Aún no posees dominios. Registra uno gratis en gensokyo://register</p>';
+                domainListEl.innerHTML = `<p style="font-size:0.85rem; color:var(--th-text-sub);">${this.escapeHtml(this.t ? this.t("passport_no_domains") : "No tienes dominios registrados aún.")}</p>`;
             } else {
-                domainListEl.innerHTML = uniqueOwned.map(dom => `\n                    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--th-bg-main); padding:8px 12px; border-radius:6px; border:1px solid var(--th-border-warm); margin-bottom:6px;">\n                        <span style="font-family:var(--font-heading); font-weight:700; color:var(--th-crimson); font-size:0.88rem;">gensokyo://${this.escapeHtml(dom)}</span>\n                        <button class="gx-btn-go" style="padding:4px 10px; font-size:0.75rem;" onclick="GensokyoApp.hidePassportModal(); GensokyoApp.navigate('gensokyo://${this.escapeHtml(dom)}');">Visitar</button>\n                    </div>\n                `).join("");
+                domainListEl.innerHTML = uniqueOwned.map(dom => `\n                    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--th-bg-main); padding:8px 12px; border-radius:6px; border:1px solid var(--th-border-warm); margin-bottom:6px;">\n                        <span style="font-family:var(--font-heading); font-weight:700; color:var(--th-crimson); font-size:0.88rem;">gensokyo://${this.escapeHtml(dom)}</span>\n                        <button class="gx-btn-go" style="padding:4px 10px; font-size:0.75rem;" onclick="GensokyoApp.hidePassportModal(); GensokyoApp.navigate('gensokyo://${this.escapeHtml(dom)}');">${this.escapeHtml(this.t ? this.t("nav_go") : "Visitar")}</button>\n                    </div>\n                `).join("");
             }
         }
         const btnContainer = document.getElementById("passport-session-buttons");
         if (!btnContainer) return;
         if (this.passport.isRegistered) {
-            btnContainer.innerHTML = `\n                <button type="button" class="gx-btn-go" style="width:100%; background:var(--th-crimson); padding:10px; font-size:0.9rem; border-radius:6px;" onclick="GensokyoApp.handleLogout()">\n                    Log Out (Cerrar Sesión)\n                </button>\n            `;
+            btnContainer.innerHTML = `\n                <button type="button" class="gx-btn-go" style="width:100%; background:var(--th-crimson); padding:10px; font-size:0.9rem; border-radius:6px;" onclick="GensokyoApp.handleLogout()">\n                    ${this.escapeHtml(this.t ? this.t("passport_logout_btn") : "Cerrar Sesión")}\n                </button>\n            `;
             return;
         }
-        btnContainer.innerHTML = `\n            <button type="button" class="gx-btn-go" style="flex:1; background:var(--th-crimson); padding:10px; font-size:0.9rem; border-radius:6px; font-weight:700; text-transform:uppercase;" onclick="GensokyoApp.showRegisterModal()">\n                Registrarse\n            </button>\n            <button type="button" class="gx-btn-go" style="flex:1; background:var(--th-bg-main); border:1.5px solid var(--th-crimson); color:var(--th-crimson); padding:10px; font-size:0.9rem; border-radius:6px; font-weight:700;" onclick="GensokyoApp.showLoginModal()">\n                Iniciar Sesión\n            </button>\n        `;
+        btnContainer.innerHTML = `\n            <button type="button" class="gx-btn-go" style="flex:1; background:var(--th-crimson); padding:10px; font-size:0.9rem; border-radius:6px; font-weight:700; text-transform:uppercase;" onclick="GensokyoApp.showRegisterModal()">\n                ${this.escapeHtml(this.t ? this.t("passport_register_btn") : "Registrarse")}\n            </button>\n            <button type="button" class="gx-btn-go" style="flex:1; background:var(--th-bg-main); border:1.5px solid var(--th-crimson); color:var(--th-crimson); padding:10px; font-size:0.9rem; border-radius:6px; font-weight:700;" onclick="GensokyoApp.showLoginModal()">\n                ${this.escapeHtml(this.t ? this.t("passport_login_btn") : "Iniciar Sesión")}\n            </button>\n        `;
     },
     showPassportModal() {
         const modal = document.getElementById("th-passport-modal");
@@ -341,10 +341,12 @@ Object.assign(GensokyoApp, {
             passwordHash: passwordHash,
             avatarUrl: safeAvatar,
             ownedDomains: this.passport.ownedDomains,
+            preferences: { ...this.preferences },
             createdAt: (new Date).toISOString()
         };
         this.saveAccountsDB();
         this.savePassportData();
+        this.syncPreferencesToCloud();
         this.onSessionChanged();
         this.showToastNotification(`¡Cuenta de ${cleanName} (${this.passport.userId}) creada exitosamente!`, "success");
         return {
@@ -452,10 +454,24 @@ Object.assign(GensokyoApp, {
                             passwordHash: passwordHash,
                             avatarUrl: this.passport.avatarUrl,
                             ownedDomains: cloudDomains,
+                            preferences: { ...this.preferences },
                             updatedAt: (new Date).toISOString()
                         };
                         this.saveAccountsDB();
                         this.savePassportData();
+                        if (data.preferences && typeof data.preferences === "object") {
+                            this.preferences = {
+                                theme: ["scarlet", "hakugyokurou"].includes(data.preferences.theme) ? data.preferences.theme : this.preferences.theme,
+                                language: ["es", "en", "pt"].includes(data.preferences.language) ? data.preferences.language : this.preferences.language,
+                                hakureiPolicy: ["ask", "auto", "block"].includes(data.preferences.hakureiPolicy) ? data.preferences.hakureiPolicy : this.preferences.hakureiPolicy
+                            };
+                            this.savePreferences(false);
+                            this.applyTheme(this.preferences.theme, false);
+                            this.setLanguage(this.preferences.language, false);
+                            this.syncHakureiPolicyUI();
+                        } else {
+                            this.fetchCloudPreferences(cloudUserId);
+                        }
                         this.onSessionChanged();
                         this.showToastNotification(`¡Bienvenido de vuelta, ${this.passport.username}!`, "success");
                         return {
@@ -497,6 +513,17 @@ Object.assign(GensokyoApp, {
             ownedDomains: acc.ownedDomains || [],
             oauthToken: secureToken
         };
+        if (acc.preferences && typeof acc.preferences === "object") {
+            this.preferences = {
+                theme: ["scarlet", "hakugyokurou"].includes(acc.preferences.theme) ? acc.preferences.theme : this.preferences.theme,
+                language: ["es", "en", "pt"].includes(acc.preferences.language) ? acc.preferences.language : this.preferences.language,
+                hakureiPolicy: ["ask", "auto", "block"].includes(acc.preferences.hakureiPolicy) ? acc.preferences.hakureiPolicy : this.preferences.hakureiPolicy
+            };
+            this.savePreferences(false);
+            this.applyTheme(this.preferences.theme, false);
+            this.setLanguage(this.preferences.language, false);
+            this.syncHakureiPolicyUI();
+        }
         this.savePassportData();
         this.onSessionChanged();
         this.showToastNotification(`¡Bienvenido de vuelta, ${acc.username}!`, "success");
@@ -504,6 +531,32 @@ Object.assign(GensokyoApp, {
             ok: true,
             message: `Bienvenido ${acc.username}`
         };
+    },
+    async fetchCloudPreferences(userId) {
+        if (!userId || !this.remoteRegistry || !this.remoteRegistry.supabaseUrl) return;
+        try {
+            const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, "");
+            const resp = await fetch(`${base}/rest/v1/gensokyo_users?user_id=eq.${encodeURIComponent(userId)}&select=preferences&limit=1`, {
+                headers: this.getSupabaseHeaders()
+            });
+            if (resp.ok) {
+                const rows = await resp.json();
+                if (Array.isArray(rows) && rows.length > 0 && rows[0].preferences && typeof rows[0].preferences === "object") {
+                    const p = rows[0].preferences;
+                    this.preferences = {
+                        theme: ["scarlet", "hakugyokurou"].includes(p.theme) ? p.theme : this.preferences.theme,
+                        language: ["es", "en", "pt"].includes(p.language) ? p.language : this.preferences.language,
+                        hakureiPolicy: ["ask", "auto", "block"].includes(p.hakureiPolicy) ? p.hakureiPolicy : this.preferences.hakureiPolicy
+                    };
+                    this.savePreferences(false);
+                    this.applyTheme(this.preferences.theme, false);
+                    this.setLanguage(this.preferences.language, false);
+                    this.syncHakureiPolicyUI();
+                    return;
+                }
+            }
+            this.syncPreferencesToCloud();
+        } catch (e) {}
     },
     async submitLoginForm() {
         const userIn = document.getElementById("login-username-input");

@@ -134,3 +134,25 @@
     font-size: 0.82rem;
     color: var(--th-text-sub);
 }
+
+.th-language-options-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.th-language-options-grid .th-theme-card {
+    text-align: center;
+    padding: 12px 6px;
+}
+
+.th-language-options-grid .th-theme-card:hover {
+    transform: translateY(-2px);
+}
+
+@media (max-width: 480px) {
+    .th-language-options-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -111,12 +111,12 @@ Object.assign(GensokyoApp, {
     },
     getTabTitleFromUrl(url) {
         const clean = url.replace("gensokyo://", "").trim().toLowerCase();
-        if (clean === "home" || clean === "") return "Inicio";
-        if (clean.startsWith("search")) return "Búsqueda";
+        if (clean === "home" || clean === "") return this.t ? this.t("nav_home") : "Inicio";
+        if (clean.startsWith("search")) return this.t ? this.t("tab_search") : "Búsqueda";
         if (clean === "bunbunmaru.news") return "Bunbunmaru";
         if (clean === "reimu.shrine") return "reimu.shrine";
-        if (clean === "register" || clean.startsWith("register") || clean === "claim" || clean.startsWith("claim")) return "Reclamar Dominio";
-        if (clean === "builder") return "Creador Web";
+        if (clean === "register" || clean.startsWith("register") || clean === "claim" || clean.startsWith("claim")) return this.t ? this.t("side_claim") : "Reclamar Dominio";
+        if (clean === "builder") return this.t ? this.t("side_builder") : "Creador Web";
         if (clean.includes("localhost") || clean.includes("127.0.0.1")) return `Localhost (${clean})`;
         return clean;
     },
@@ -526,7 +526,61 @@ Object.assign(GensokyoApp, {
         viewport.innerHTML = `\n            <div class="th-card" style="max-width: 600px; margin: 40px auto; text-align: center;">\n                <h2 class="th-card-title">Dominio No Registrado</h2>\n                <div class="gx-address-bar" style="max-width: 400px; margin: 15px auto; justify-content: center;">gensokyo://${this.escapeHtml(path)}</div>\n                <p style="margin-bottom: 20px;">Esta dirección aún no existe en la red <strong>GensokyoNet</strong>.</p>\n                <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://register?domain=${encodeURIComponent(path)}')">\n                    Reclamar este dominio gratis\n                </button>\n            </div>\n        `;
     },
     getSpeedDialView() {
-        return `\n            <div class="gx-speed-dial-container">\n                <div class="yomoyama-banner-card">\n                    <div class="yomoyama-banner-inner" style="background-image: url('assets/gensokyo_banner.png?v=${Date.now()}');">\n                        <div class="banner-overlay-gradient"></div>\n                        <div class="banner-title-group">\n                            <h1 class="yomoyama-main-title">東方 GensokyoNet</h1>\n                            <p class="yomoyama-sub-title">Intranet Libre para la Comunidad de Touhou</p>\n                        </div>\n                    </div>\n                </div>\n\n                <div class="gx-search-box-wrap">\n                    <div class="gx-search-box">\n                        <input type="text" id="gx-home-search" class="gx-search-input" placeholder="Buscar en la red..." onkeypress="if(event.key==='Enter'){ GensokyoApp.submitHomeSearch(); }">\n                        <button class="gx-search-btn" onclick="GensokyoApp.submitHomeSearch()">Buscar</button>\n                    </div>\n                </div>\n\n                <div class="gx-speed-dial-grid">\n                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://register')">\n                        <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">\n                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>\n                        </div>\n                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">RECLAMAR DOMINIO</h3>\n                        <p style="font-size:0.8rem; color:var(--th-text-sub);">Crea tu propio rincón</p>\n                    </div>\n\n                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://history')">\n                        <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">\n                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>\n                        </div>\n                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">HISTORIAL</h3>\n                        <p style="font-size:0.8rem; color:var(--th-text-sub);">Registro de Navegación</p>\n                    </div>\n\n                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://builder')">\n                        <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">\n                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>\n                        </div>\n                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">CREADOR WEB</h3>\n                        <p style="font-size:0.8rem; color:var(--th-text-sub);">Escribe tu propio rincón</p>\n                    </div>\n\n                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://localhost:8080')">\n                        <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">\n                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M4 6h16v12H4zm2 2v8h12V8zm2 2h8v4H8z"/></svg>\n                        </div>\n                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">DEV LOCALHOST</h3>\n                        <p style="font-size:0.8rem; color:var(--th-text-sub);">Probar Servidor Local</p>\n                    </div>\n                </div>\n            </div>\n        `;
+        const t = (k, p) => (this.t ? this.t(k, p) : k);
+        return `
+            <div class="gx-speed-dial-container">
+                <div class="yomoyama-banner-card">
+                    <div class="yomoyama-banner-inner" style="background-image: url('assets/gensokyo_banner.png?v=${Date.now()}');">
+                        <div class="banner-overlay-gradient"></div>
+                        <div class="banner-title-group">
+                            <h1 class="yomoyama-main-title">東方 GensokyoNet</h1>
+                            <p class="yomoyama-sub-title">${this.escapeHtml(t("app_subtitle"))}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="gx-search-box-wrap">
+                    <div class="gx-search-box">
+                        <input type="text" id="gx-home-search" class="gx-search-input" placeholder="${this.escapeHtml(t("sd_search_placeholder"))}" onkeypress="if(event.key==='Enter'){ GensokyoApp.submitHomeSearch(); }">
+                        <button class="gx-search-btn" onclick="GensokyoApp.submitHomeSearch()">${this.escapeHtml(t("sd_search_btn"))}</button>
+                    </div>
+                </div>
+
+                <div class="gx-speed-dial-grid">
+                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://register')">
+                        <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
+                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>
+                        </div>
+                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">${this.escapeHtml(t("sd_claim_title"))}</h3>
+                        <p style="font-size:0.8rem; color:var(--th-text-sub);">${this.escapeHtml(t("sd_claim_sub"))}</p>
+                    </div>
+
+                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://history')">
+                        <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
+                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                        </div>
+                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">${this.escapeHtml(t("sd_history_title"))}</h3>
+                        <p style="font-size:0.8rem; color:var(--th-text-sub);">${this.escapeHtml(t("sd_history_sub"))}</p>
+                    </div>
+
+                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://builder')">
+                        <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
+                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                        </div>
+                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">${this.escapeHtml(t("sd_builder_title"))}</h3>
+                        <p style="font-size:0.8rem; color:var(--th-text-sub);">${this.escapeHtml(t("sd_builder_sub"))}</p>
+                    </div>
+
+                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://localhost:8080')">
+                        <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
+                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M4 6h16v12H4zm2 2v8h12V8zm2 2h8v4H8z"/></svg>
+                        </div>
+                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">${this.escapeHtml(t("sd_localhost_title"))}</h3>
+                        <p style="font-size:0.8rem; color:var(--th-text-sub);">${this.escapeHtml(t("sd_localhost_sub"))}</p>
+                    </div>
+                </div>
+            </div>
+        `;
     },
     renderWebringBadgesHTML() {
         const seedKeys = Object.keys(GensokyoSeedData && GensokyoSeedData.domains ? GensokyoSeedData.domains : {});

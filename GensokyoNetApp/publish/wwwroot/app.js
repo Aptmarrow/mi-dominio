@@ -35,7 +35,13 @@ const GensokyoApp = {
     },
     userDomains: {},
     accountsDB: {},
+    preferences: {
+        theme: "scarlet",
+        language: "es",
+        hakureiPolicy: "ask"
+    },
     currentTheme: "scarlet",
+    currentLanguage: "es",
     securityConfig: {
         localhostSandboxMode: "secure"
     },
@@ -60,7 +66,7 @@ const GensokyoApp = {
         this.loadPassportData();
         this.loadUserDomains();
         this.loadSecurityConfig();
-        this.loadHakureiPolicy();
+        this.loadPreferences();
         this.loadBookmarks();
         this.loadSidebarState();
         this.loadNavigationHistory();
@@ -737,41 +743,155 @@ const GensokyoApp = {
         const countEl = document.getElementById("th-domain-count");
         if (countEl) countEl.innerText = `Dominios Activos: ${total}`;
     },
+    t(key, params) {
+        if (window.GensokyoI18n) {
+            return window.GensokyoI18n.t(key, params);
+        }
+        return key;
+    },
+    loadPreferences() {
+        let prefs = null;
+        const stored = localStorage.getItem("gensokyo_preferences");
+        if (stored) {
+            try {
+                prefs = JSON.parse(stored);
+            } catch (e) {}
+        }
+        const oldTheme = localStorage.getItem("gensokyo_theme");
+        const oldPolicy = localStorage.getItem("gensokyo_hakurei_policy");
+        const oldLang = localStorage.getItem("gensokyo_language");
+
+        if (!prefs || typeof prefs !== "object") prefs = {};
+        const theme = ["scarlet", "hakugyokurou"].includes(prefs.theme) ? prefs.theme : (oldTheme || "scarlet");
+        const language = ["es", "en", "pt"].includes(prefs.language) ? prefs.language : (oldLang || "es");
+        const policy = ["ask", "auto", "block"].includes(prefs.hakureiPolicy) ? prefs.hakureiPolicy : (oldPolicy || "ask");
+
+        this.preferences = {
+            theme: theme,
+            language: language,
+            hakureiPolicy: policy
+        };
+        this.currentTheme = theme;
+        this.hakureiPolicy = policy;
+        this.currentLanguage = language;
+
+        this.applyTheme(theme, false);
+        this.setLanguage(language, false);
+        this.syncHakureiPolicyUI();
+    },
     loadHakureiPolicy() {
-        const stored = localStorage.getItem("gensokyo_hakurei_policy");
-        if (stored && [ "ask", "auto", "block" ].includes(stored)) {
-            this.hakureiPolicy = stored;
+        this.loadPreferences();
+    },
+    savePreferences(syncToCloud = true) {
+        try {
+            localStorage.setItem("gensokyo_preferences", JSON.stringify(this.preferences));
+            localStorage.setItem("gensokyo_theme", this.preferences.theme);
+            localStorage.setItem("gensokyo_language", this.preferences.language);
+            localStorage.setItem("gensokyo_hakurei_policy", this.preferences.hakureiPolicy);
+        } catch (e) {
+            console.error("Error al guardar preferencias", e);
+        }
+        if (this.passport && this.passport.username) {
+            const accountKey = this.passport.username.toLowerCase();
+            if (this.accountsDB && this.accountsDB[accountKey]) {
+                this.accountsDB[accountKey].preferences = { ...this.preferences };
+                this.saveAccountsDB();
+            }
+        }
+        if (syncToCloud) {
+            this.syncPreferencesToCloud();
+        }
+    },
+    async syncPreferencesToCloud() {
+        if (!this.passport || !this.passport.isLoggedIn || !this.passport.isRegistered || !this.passport.userId) {
+            return;
+        }
+        if (!this.remoteRegistry || !this.remoteRegistry.supabaseUrl) {
+            return;
+        }
+        const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, "");
+        try {
+            const rpcResp = await fetch(`${base}/rest/v1/rpc/update_gensokyo_preferences`, {
+                method: "POST",
+                headers: this.getSupabaseHeaders(),
+                body: JSON.stringify({
+                    p_user_id: this.passport.userId,
+                    p_preferences: this.preferences
+                })
+            });
+            if (!rpcResp.ok) {
+                await fetch(`${base}/rest/v1/gensokyo_users?user_id=eq.${encodeURIComponent(this.passport.userId)}`, {
+                    method: "PATCH",
+                    headers: this.getSupabaseHeaders(),
+                    body: JSON.stringify({ preferences: this.preferences })
+                });
+            }
+        } catch (e) {}
+    },
+    setLanguage(langCode, triggerSave = true) {
+        const code = ["es", "en", "pt"].includes(langCode) ? langCode : "es";
+        this.currentLanguage = code;
+        this.preferences.language = code;
+        if (window.GensokyoI18n) {
+            window.GensokyoI18n.setLanguage(code);
+        }
+        if (this.currentTheme) {
+            const statusEl = document.getElementById("th-status-text");
+            if (statusEl) {
+                statusEl.innerText = this.currentTheme === "hakugyokurou" ? this.t("toast_theme_haku") : this.t("toast_theme_scarlet");
+            }
+        }
+        const activeTab = typeof this.getActiveTab === "function" ? this.getActiveTab() : null;
+        if (activeTab && (activeTab.url === "gensokyo://home" || activeTab.url === "gensokyo://" || activeTab.url === "")) {
+            const viewport = document.getElementById("th-viewport");
+            if (viewport && typeof this.getSpeedDialView === "function") {
+                viewport.innerHTML = this.getSpeedDialView();
+            }
+        }
+        if (typeof this.renderTabs === "function") {
+            this.renderTabs();
+        }
+        if (triggerSave) {
+            this.savePreferences(true);
+            const langName = (window.GensokyoI18n && window.GensokyoI18n.languageNames[code]) || code;
+            if (this.showToastNotification) {
+                this.showToastNotification(this.t("toast_lang_changed", { lang: langName }), "info");
+            }
         }
     },
     setHakureiPolicy(policyValue) {
         if (![ "ask", "auto", "block" ].includes(policyValue)) return;
         this.hakureiPolicy = policyValue;
-        try {
-            localStorage.setItem("gensokyo_hakurei_policy", policyValue);
-        } catch (e) {
-            console.error("Error al guardar política de la Barrera Hakurei", e);
-        }
+        this.preferences.hakureiPolicy = policyValue;
+        this.savePreferences(true);
         if (this.showToastNotification) {
-            let label = "Preguntar antes de acceder a dominios externos";
-            if (policyValue === "auto") label = "Acceso automático al Mundo Exterior";
-            if (policyValue === "block") label = "Bloqueo total del Mundo Exterior";
-            this.showToastNotification(`Navegación Externa: ${label}`, "info");
+            let labelKey = "toast_policy_ask";
+            if (policyValue === "auto") labelKey = "toast_policy_auto";
+            if (policyValue === "block") labelKey = "toast_policy_block";
+            this.showToastNotification(this.t(labelKey), "info");
         }
         this.syncHakureiPolicyUI();
     },
     syncHakureiPolicyUI() {
         const radio = document.querySelector(`input[name="hakurei-policy-option"][value="${this.hakureiPolicy}"]`);
         if (radio) radio.checked = true;
+        if (window.GensokyoI18n) {
+            window.GensokyoI18n.applyToDOM();
+        }
     },
     showThemeModal() {
         this.syncHakureiPolicyUI();
+        if (window.GensokyoI18n) {
+            window.GensokyoI18n.applyToDOM();
+        }
         document.getElementById("th-theme-modal")?.classList.remove("hidden");
     },
     hideThemeModal() {
         document.getElementById("th-theme-modal")?.classList.add("hidden");
     },
-    applyTheme(themeKey) {
+    applyTheme(themeKey, triggerSave = true) {
         this.currentTheme = themeKey;
+        this.preferences.theme = themeKey;
         document.body.classList.remove("theme-scarlet", "theme-hakugyokurou");
         document.getElementById("theme-card-scarlet")?.classList.remove("active");
         document.getElementById("theme-card-hakugyokurou")?.classList.remove("active");
@@ -779,11 +899,14 @@ const GensokyoApp = {
         if (themeKey === "hakugyokurou") {
             document.body.classList.add("theme-hakugyokurou");
             document.getElementById("theme-card-hakugyokurou")?.classList.add("active");
-            if (statusEl) statusEl.innerText = "GensokyoNet • Estilo Hakugyokurou (TH07 Modo Oscuro)";
+            if (statusEl) statusEl.innerText = this.t("toast_theme_haku");
         } else {
             document.body.classList.add("theme-scarlet");
             document.getElementById("theme-card-scarlet")?.classList.add("active");
-            if (statusEl) statusEl.innerText = "GensokyoNet • Estilo Scarlet Mist (TH06 Modo Pergamino)";
+            if (statusEl) statusEl.innerText = this.t("toast_theme_scarlet");
+        }
+        if (triggerSave) {
+            this.savePreferences(true);
         }
         this.hideThemeModal();
     },
