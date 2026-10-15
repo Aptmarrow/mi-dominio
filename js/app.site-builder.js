@@ -121,9 +121,18 @@
     GensokyoApp.renderSiteBuilder = function(requestedDomain = null) {
         const viewport = document.getElementById("th-viewport");
         if (!viewport) return;
-        const domains = Object.keys(this.userDomains || {});
-        if (!IDE.currentDomain || requestedDomain && this.userDomains[requestedDomain]) {
+        const userDomainKeys = Object.keys(this.userDomains || {});
+        const ownedKeys = (this.passport && Array.isArray(this.passport.ownedDomains)) ? this.passport.ownedDomains : [];
+        const domains = Array.from(new Set([...userDomainKeys, ...ownedKeys])).filter(Boolean);
+
+        if (typeof this.syncUserDomainsFromCloud === "function") {
+            this.syncUserDomainsFromCloud().catch(() => {});
+        }
+
+        if (!IDE.currentDomain || requestedDomain) {
             IDE.currentDomain = requestedDomain || domains[0] || "demo.gensokyo";
+        } else if (!domains.includes(IDE.currentDomain) && domains.length > 0) {
+            IDE.currentDomain = domains[0];
         }
         this.loadDomainIntoVfs(IDE.currentDomain);
         const sandboxMode = this.securityConfig && this.securityConfig.localhostSandboxMode || "secure";
@@ -139,7 +148,21 @@
         this.compileAndRunPreview(false);
     };
     GensokyoApp.loadDomainIntoVfs = function(domainName) {
-        const domainObj = this.userDomains[domainName];
+        let domainObj = this.userDomains[domainName];
+        if (!domainObj && this.passport && Array.isArray(this.passport.ownedDomains) && this.passport.ownedDomains.includes(domainName)) {
+            const vfs = typeof GensokyoVFS !== "undefined" && GensokyoVFS.createDefaultTree ? GensokyoVFS.createDefaultTree() : { files: { "index.html": `<!DOCTYPE html><html><body><h1>gensokyo://${domainName}</h1></body></html>` }, folders: [] };
+            domainObj = {
+                title: domainName,
+                author: this.passport?.username || "Nameless Youkai",
+                ownerId: this.passport?.userId || "ID#0000",
+                visibility: "public",
+                activeVersion: "v1",
+                vfs: vfs,
+                htmlContent: vfs.files["index.html"] || ""
+            };
+            this.userDomains[domainName] = domainObj;
+            this.saveUserDomains();
+        }
         if (domainObj && domainObj.vfs && domainObj.vfs.files) {
             IDE.vfs = {
                 files: {

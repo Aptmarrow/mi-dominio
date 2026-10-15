@@ -73,6 +73,9 @@ const GensokyoApp = {
         if (typeof this.fetchRemoteDirectory === "function") {
             this.fetchRemoteDirectory().catch(() => {});
         }
+        if (typeof this.syncUserDomainsFromCloud === "function") {
+            this.syncUserDomainsFromCloud().catch(() => {});
+        }
         const urlInput = document.getElementById("th-url-input");
         if (urlInput) {
             urlInput.addEventListener("keypress", e => {
@@ -380,6 +383,88 @@ const GensokyoApp = {
             }
         } catch (e) {}
         return this._remoteDirectoryCache || [];
+    },
+    async syncUserDomainsFromCloud() {
+        if (!this.remoteRegistry?.enabled || !this.remoteRegistry.supabaseUrl) return;
+        const myId = this.passport ? this.passport.userId : null;
+        const myName = this.passport ? this.passport.username : null;
+        if (!this.passport || !this.passport.isRegistered || !myId || myId === "ID#0000") return;
+
+        const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, "");
+        try {
+            const res = await this.fetchWithTimeout(
+                `${base}/rest/v1/gensokyo_domains?owner_id=eq.${encodeURIComponent(myId)}&select=domain,title,author,owner_id,visibility,active_version,versions,html_content,content_url,updated_at`,
+                { method: "GET", headers: this.getSupabaseHeaders() },
+                5000
+            );
+            let list = [];
+            if (res.ok) {
+                list = await res.json();
+            }
+
+            if ((!Array.isArray(list) || list.length === 0) && myName && myName.toLowerCase() !== "nameless youkai") {
+                try {
+                    const authorRes = await this.fetchWithTimeout(
+                        `${base}/rest/v1/gensokyo_domains?author=ilike.${encodeURIComponent(myName)}&select=domain,title,author,owner_id&limit=1`,
+                        { method: "GET", headers: this.getSupabaseHeaders() },
+                        4000
+                    );
+                    if (authorRes.ok) {
+                        const authorRows = await authorRes.json();
+                        if (Array.isArray(authorRows) && authorRows.length > 0) {
+                            const row = authorRows[0];
+                            if (row.owner_id && row.owner_id !== myId) {
+                                console.warn("Sesión local no sincronizada con el Pasaporte de la nube:", myName, "Local ID:", myId, "Cloud ID:", row.owner_id);
+                                if (this.showToastNotification) {
+                                    this.showToastNotification(`Aviso: Tu sesión de "${myName}" no coincide con tu cuenta real. Cierra sesión e inicia sesión con tu contraseña para acceder a "${row.domain}".`, "warning");
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            if (Array.isArray(list) && list.length > 0) {
+                let changed = false;
+                list.forEach(item => {
+                    if (!item.domain) return;
+                    const normDom = item.domain.toLowerCase();
+                    if (!Array.isArray(this.passport.ownedDomains)) this.passport.ownedDomains = [];
+                    if (!this.passport.ownedDomains.includes(normDom)) {
+                        this.passport.ownedDomains.push(normDom);
+                        changed = true;
+                    }
+                    if (!this.userDomains[normDom] || this.userDomains[normDom].ownerId === myId) {
+                        const vfs = typeof GensokyoVFS !== "undefined" && GensokyoVFS.createDefaultTree ? GensokyoVFS.createDefaultTree() : { files: {}, folders: [] };
+                        const html = item.html_content || `<!DOCTYPE html><html><body><h1>gensokyo://${normDom}</h1></body></html>`;
+                        if (!vfs.files["index.html"]) vfs.files["index.html"] = html;
+                        this.userDomains[normDom] = {
+                            title: item.title || normDom,
+                            author: item.author || myName,
+                            ownerId: myId,
+                            visibility: item.visibility || "public",
+                            activeVersion: item.active_version || "v1",
+                            versions: item.versions || { v1: { htmlContent: html, vfs: vfs, updatedAt: item.updated_at } },
+                            vfs: vfs,
+                            htmlContent: html
+                        };
+                        changed = true;
+                    }
+                });
+                if (changed) {
+                    this.saveUserDomains();
+                    this.savePassportData();
+                    this.updatePassportUI();
+                    const selectEl = document.getElementById("gx-ide-domain-select");
+                    if (selectEl) {
+                        const domKeys = Object.keys(this.userDomains);
+                        selectEl.innerHTML = domKeys.map(d => `<option value="${this.escapeHtml(d)}" ${d === this.builderSelectedDomain ? "selected" : ""}>gensokyo://${this.escapeHtml(d)}</option>`).join("");
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn("Fallo sincronizando dominios de usuario desde Supabase:", err);
+        }
     },
     syncBookmarkButtonUI() {
         const button = document.getElementById("th-bookmark-toggle-btn");
