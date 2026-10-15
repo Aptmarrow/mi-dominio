@@ -1,13 +1,11 @@
-/* ==========================================================================
-   GensokyoNet - Touhou Themes System (TH06 Scarlet Mist & TH07 Hakugyokurou)
-   ========================================================================== */
+
 
 :root {
-    /* Font Families */
+    
     --font-heading: 'Cinzel', 'Noto Sans JP', serif;
     --font-body: 'Outfit', 'Noto Sans JP', sans-serif;
 
-    /* Theme Tokens Defaults (Scarlet Mist Pergamino) */
+    
     --th-bg-main: #fcf8f2;
     --th-bg-header: #f5eee4;
     --th-bg-sidebar: #f0e6d6;
@@ -26,7 +24,7 @@
     --th-shadow: rgba(166, 27, 50, 0.08);
 }
 
-/* Reset Base */
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -50,7 +48,7 @@ body {
     overflow: hidden;
 }
 
-/* Tema 1: Scarlet Mist (TH06 Pergamino Claro con Animación Niebla Roja) */
+
 body.theme-scarlet {
     --th-bg-main: #fcf8f2;
     --th-bg-header: #f5eee4;
@@ -68,7 +66,7 @@ body.theme-scarlet {
                       radial-gradient(circle at 90% 80%, rgba(166, 27, 50, 0.04) 0%, transparent 40%);
 }
 
-/* Tema 2: Hakugyokurou (TH07 Noche Oscura Mística con Cerezos) */
+
 body.theme-hakugyokurou {
     --th-bg-main: #141118;
     --th-bg-header: #1c1822;

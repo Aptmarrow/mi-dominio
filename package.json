@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "terser": "^5.51.2"
   }
 }

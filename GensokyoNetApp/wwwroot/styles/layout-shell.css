@@ -1,6 +1,4 @@
-/* ==========================================================================
-   GensokyoNet - Shell Layout (Header, Navigation Bar, Sidebar, Viewport Wrapper & Footer)
-   ========================================================================== */
+
 
 .gx-window-header {
     display: flex;
@@ -43,7 +41,7 @@
     letter-spacing: 1px;
 }
 
-/* Dynamic Tabs */
+
 .gx-tab-strip {
     flex: 0 1 auto;
     min-width: 0;
@@ -136,7 +134,7 @@
     border-color: var(--th-crimson);
 }
 
-/* Hakurei Barrier Pill */
+
 .gx-barrier-pill {
     display: flex;
     align-items: center;
@@ -169,7 +167,7 @@
     color: var(--th-crimson);
 }
 
-/* Navigation Bar */
+
 .gx-navbar {
     display: flex;
     align-items: center;
@@ -322,7 +320,7 @@
     border-color: #c62828;
 }
 
-/* Application Body Layout */
+
 .gx-app-body {
     display: flex;
     flex: 1;
@@ -330,7 +328,7 @@
     width: 100%;
 }
 
-/* Sidebar Left Navigation */
+
 .gx-sidebar {
     width: 60px;
     background: var(--th-bg-sidebar);
@@ -360,7 +358,7 @@
     color: #ffffff;
 }
 
-/* Floating tab button on left edge when sidebar is collapsed */
+
 .gx-sidebar-floating-tab {
     position: fixed;
     left: 0;
@@ -434,7 +432,7 @@
     opacity: 1;
 }
 
-/* Viewport Wrapper & Centered Viewport */
+
 .gx-viewport-wrapper {
     flex: 1;
     overflow-y: auto;
@@ -481,7 +479,7 @@
     flex: 1 1 100% !important;
 }
 
-/* Footer Status Bar - Removido y oculto */
+
 .gx-statusbar,
 .gx-statusbar.hidden {
     display: none !important;
@@ -505,7 +503,7 @@
     box-shadow: 0 0 6px #4caf50;
 }
 
-/* SVG Vector Icons */
+
 .th-svg-icon {
     width: 18px;
     height: 18px;

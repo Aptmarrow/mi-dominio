@@ -45,7 +45,7 @@ body.theme-hakugyokurou .gx-viewport-wrapper {
     justify-content: center;
 }
 
-/* Koumakyou Hero Showcase Banner */
+
 .yomoyama-banner-card {
     width: 100%;
     max-width: 880px;
@@ -98,7 +98,7 @@ body.theme-hakugyokurou .gx-viewport-wrapper {
     font-weight: 400;
 }
 
-/* Soft Search Box */
+
 .gx-search-box-wrap {
     width: 100%;
     max-width: 650px;
@@ -146,7 +146,7 @@ body.theme-hakugyokurou .gx-viewport-wrapper {
     background: var(--th-crimson-dark);
 }
 
-/* Speed Dial Cards Grid */
+
 .gx-speed-dial-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -208,7 +208,7 @@ body.theme-hakugyokurou .gx-viewport-wrapper {
     color: var(--th-text-sub);
 }
 
-/* Theme Selector Cards inside Modal */
+
 .th-theme-options-grid {
     display: flex;
     flex-direction: column;
@@ -247,7 +247,7 @@ body.theme-hakugyokurou .gx-viewport-wrapper {
     color: var(--th-text-sub);
 }
 
-/* Warm Parchment Cards */
+
 .th-card {
     width: 100%;
     background: var(--th-bg-card);
@@ -339,9 +339,7 @@ body.theme-hakugyokurou .gx-viewport-wrapper {
     color: var(--th-text-sub);
 }
 
-/* ==========================================================================
-   WEBRING 88x31 & HISTORIAL STYLES
-   ========================================================================== */
+
 
 .gx-webring-section {
     width: 100%;

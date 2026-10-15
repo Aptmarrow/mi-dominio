@@ -1,6 +1,4 @@
-/* ==========================================================================
-   FORMULARIO DE LOGIN Y REGISTRO ESTILO TOUHOU (CON OJOS DE YUKARI EN REGISTRO)
-   ========================================================================== */
+
 
 .th-form-group,
 .th-input-group {
@@ -54,7 +52,7 @@
     padding-right: 44px;
 }
 
-/* Botón Ojo de Yukari (Brecha dimensional) */
+
 .yukari-eye-btn {
     position: absolute;
     right: 8px;
@@ -108,7 +106,7 @@
     display: block;
 }
 
-/* Toast Notificación flotante personalizada */
+
 .th-toast-container {
     position: fixed;
     bottom: 24px;
@@ -158,9 +156,7 @@
     to { transform: translateY(0); opacity: 1; }
 }
 
-/* ==========================================================================
-   DESPLIEGUE DE PROYECTOS VS CODE, CONTROL DE VERSIONES Y CUOTAS
-   ========================================================================== */
+
 
 .project-drop-zone {
     border: 2px dashed var(--th-crimson);

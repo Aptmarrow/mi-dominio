@@ -1,8 +1,6 @@
-/* ==========================================================================
-   GensokyoNet - Exact Google SERP Layout & Search Results Styles
-   ========================================================================== */
 
-/* Top Google SERP Header */
+
+
 .google-serp-container {
     width: 100%;
     margin-bottom: 20px;
@@ -95,7 +93,7 @@
     align-items: center;
 }
 
-/* User profile group & icons */
+
 .serp-user-profile-group {
     display: flex;
     align-items: center;
@@ -136,7 +134,7 @@
     transform: scale(1.1);
 }
 
-/* Tab Bar Navigation (Todos, Imágenes, Videos, Noticias) */
+
 .google-serp-tab-bar {
     display: flex;
     align-items: center;
@@ -177,14 +175,14 @@
     font-size: 0.85rem;
 }
 
-/* Stats Counter */
+
 .serp-stats-bar {
     font-size: 0.82rem;
     color: var(--th-text-sub);
     margin-bottom: 20px;
 }
 
-/* Web Result Cards */
+
 .search-results-list {
     display: flex;
     flex-direction: column;
@@ -233,7 +231,7 @@
     color: var(--th-text-sub);
 }
 
-/* Images Results Grid */
+
 .search-images-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -279,7 +277,7 @@
     color: var(--th-text-sub);
 }
 
-/* Video Results Grid */
+
 .search-videos-list {
     display: flex;
     flex-direction: column;

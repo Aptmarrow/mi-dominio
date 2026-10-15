@@ -1,4 +1,4 @@
-/* Entry point stylesheet: imports modular sections in cascade order */
+
 @import url('styles/theme-base.css');
 @import url('styles/layout-shell.css');
 @import url('styles/home-cards.css');
