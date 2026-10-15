@@ -34,10 +34,13 @@ Object.assign(GensokyoApp, {
                 }
             });
         }
-        if (!this._remoteDirectoryCache && typeof this.fetchRemoteDirectory === "function") {
+        if (typeof this.fetchRemoteDirectory === "function") {
             this.fetchRemoteDirectory().then(remoteDomains => {
-                if (Array.isArray(remoteDomains) && remoteDomains.length > 0 && this.currentSearchQuery === query) {
-                    this.renderSearchResults(query, filterTab);
+                if (Array.isArray(remoteDomains) && this.currentSearchQuery === query) {
+                    const hasNew = remoteDomains.some(r => r && r.domain && !allDomains[r.domain]);
+                    if (hasNew) {
+                        this.renderSearchResults(query, filterTab);
+                    }
                 }
             });
         }

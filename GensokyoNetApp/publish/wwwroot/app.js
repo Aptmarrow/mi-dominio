@@ -52,6 +52,9 @@ const GensokyoApp = {
         this.loadBookmarks();
         this.loadSidebarState();
         this.loadNavigationHistory();
+        if (typeof this.fetchRemoteDirectory === "function") {
+            this.fetchRemoteDirectory().catch(() => {});
+        }
         const urlInput = document.getElementById("th-url-input");
         if (urlInput) {
             urlInput.addEventListener("keypress", e => {
