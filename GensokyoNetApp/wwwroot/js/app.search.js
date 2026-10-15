@@ -89,7 +89,7 @@ Object.assign(GensokyoApp, {
         const searchInput = serp.querySelector("#serp-search-input");
         if (searchInput) {
             searchInput.addEventListener("keydown", event => {
-                if (event.key === "Enter") {
+                if (event && event.key === "Enter") {
                     event.preventDefault();
                     this.submitSerpSearch();
                 }

@@ -218,6 +218,7 @@
                 this.renderVfsHierarchyUI();
             };
             input.addEventListener("keydown", ev => {
+                if (!ev || typeof ev.key !== "string") return;
                 if (ev.key === "Enter") {
                     ev.preventDefault();
                     commit();
@@ -759,6 +760,7 @@
         });
         treeEl.addEventListener("keydown", e => {
             if (IDE.inlineEditMode) return;
+            if (!e || typeof e.key !== "string") return;
             if (e.key === "F2") {
                 e.preventDefault();
                 this.triggerVfsOperation("rename");
@@ -849,6 +851,7 @@
             });
             document.addEventListener("keydown", e => {
                 if (!document.getElementById("gx-ide-workbench")) return;
+                if (!e || typeof e.key !== "string") return;
                 const key = e.key.toLowerCase();
                 if (e.ctrlKey && e.shiftKey && key === "p") {
                     e.preventDefault();

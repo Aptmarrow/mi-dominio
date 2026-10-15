@@ -1,3 +1,15 @@
+if (typeof Event !== "undefined" && !Event.prototype.getModifierState) {
+    Event.prototype.getModifierState = function(keyArg) {
+        if (!keyArg) return false;
+        const k = String(keyArg).toLowerCase();
+        if (k === "control") return !!this.ctrlKey;
+        if (k === "shift") return !!this.shiftKey;
+        if (k === "alt") return !!this.altKey;
+        if (k === "meta") return !!this.metaKey;
+        return false;
+    };
+}
+
 const GensokyoApp = {
     tabs: [],
     activeTabId: null,
@@ -58,10 +70,11 @@ const GensokyoApp = {
         const urlInput = document.getElementById("th-url-input");
         if (urlInput) {
             urlInput.addEventListener("keypress", e => {
-                if (e.key === "Enter") this.submitUrl();
+                if (e && e.key === "Enter") this.submitUrl();
             });
         }
         document.addEventListener("keydown", e => {
+            if (!e || typeof e.key !== "string") return;
             const key = e.key.toLowerCase();
             if (e.ctrlKey && key === "t") {
                 e.preventDefault();
