@@ -12,10 +12,21 @@ const GensokyoApp = {
     remoteDomainCache: {},
     remoteRegistry: {
         enabled: true,
-        apiBase: 'https://espinoza.engineer',
-        resolvePath: '/api/gensokyo/domains',
-        publishPath: '/api/gensokyo/publish',
-        timeoutMs: 6000
+        supabaseUrl: 'https://tgtzexzgdqxjezjxrium.supabase.co',
+        apiBase: 'https://tgtzexzgdqxjezjxrium.supabase.co',
+        supabaseAnonKey: 'sb_publishable_YZ-iFdyG0pFxPmv17SGLPQ_EUlmuzkG',
+        bucketName: 'gensokyo-sites',
+        timeoutMs: 8000
+    },
+
+    getSupabaseHeaders(extra = {}) {
+        const key = (this.remoteRegistry && this.remoteRegistry.supabaseAnonKey) || '';
+        return {
+            'Content-Type': 'application/json',
+            'apikey': key,
+            'Authorization': `Bearer ${key}`,
+            ...extra
+        };
     },
     userDomains: {},
     accountsDB: {},
@@ -365,25 +376,35 @@ const GensokyoApp = {
     },
 
     async fetchRemoteDirectory() {
-        if (!this.remoteRegistry || !this.remoteRegistry.enabled || !this.remoteRegistry.apiBase) {
-            return [];
-        }
+        if (!this.remoteRegistry?.enabled || !this.remoteRegistry.supabaseUrl) return [];
         const now = Date.now();
         if (this._remoteDirectoryCache && (now - this._remoteDirectoryLastFetch < 20000)) {
             return this._remoteDirectoryCache;
         }
         try {
-            const base = String(this.remoteRegistry.apiBase).replace(/\/$/, '');
-            const res = await this.fetchWithTimeout(`${base}/api/gensokyo/directory`, { method: 'GET' }, 3500);
+            const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, '');
+            const url = `${base}/rest/v1/gensokyo_domains?visibility=eq.public&select=domain,title,author,active_version,badge_url,badge_text,updated_at&order=updated_at.desc`;
+            const res = await this.fetchWithTimeout(url, {
+                method: 'GET',
+                headers: this.getSupabaseHeaders()
+            }, 4500);
             if (res.ok) {
-                const data = await res.json();
-                const list = Array.isArray(data.domains) ? data.domains : [];
+                const rows = await res.json();
+                const list = (Array.isArray(rows) ? rows : []).map(r => ({
+                    domain: r.domain,
+                    title: r.title,
+                    author: r.author,
+                    activeVersion: r.active_version,
+                    badgeUrl: r.badge_url,
+                    badgeText: r.badge_text,
+                    updatedAt: r.updated_at
+                }));
                 this._remoteDirectoryCache = list;
                 this._remoteDirectoryLastFetch = now;
                 return list;
             }
         } catch (e) {
-            // Fallback silencioso si no hay conexion
+            // Fallback silencioso si no hay conexión
         }
         return this._remoteDirectoryCache || [];
     },
@@ -585,7 +606,7 @@ const GensokyoApp = {
     },
 
     isRemoteRegistryEnabled() {
-        return !!(this.remoteRegistry && this.remoteRegistry.enabled && this.remoteRegistry.apiBase);
+        return !!(this.remoteRegistry && this.remoteRegistry.enabled && (this.remoteRegistry.supabaseUrl || this.remoteRegistry.apiBase));
     },
 
     async fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
@@ -615,9 +636,13 @@ const GensokyoApp = {
         try {
             const parsed = new URL(rawUrl);
             if (parsed.protocol !== 'https:') return false;
-            const apiHost = new URL(this.remoteRegistry.apiBase).hostname.toLowerCase();
             const targetHost = parsed.hostname.toLowerCase();
-            return targetHost === apiHost || targetHost.endsWith(`.${apiHost}`);
+            if (targetHost.endsWith('.supabase.co')) return true;
+            if (this.remoteRegistry && (this.remoteRegistry.supabaseUrl || this.remoteRegistry.apiBase)) {
+                const baseHost = new URL(this.remoteRegistry.supabaseUrl || this.remoteRegistry.apiBase).hostname.toLowerCase();
+                if (targetHost === baseHost || targetHost.endsWith(`.${baseHost}`)) return true;
+            }
+            return false;
         } catch {
             return false;
         }
@@ -660,77 +685,62 @@ const GensokyoApp = {
 
     async resolveDomainRouteRemote(domainName) {
         const domainKey = this.normalizeDomainKey(domainName);
-        if (!domainKey || !this.isRemoteRegistryEnabled()) return null;
+        if (!domainKey || !this.remoteRegistry?.enabled || !this.remoteRegistry.supabaseUrl) return null;
 
         const cacheHit = this.remoteDomainCache[domainKey];
         if (cacheHit && (Date.now() - cacheHit.cachedAt) < 15000) {
             return cacheHit.routeInfo;
         }
 
-        const base = String(this.remoteRegistry.apiBase || '').replace(/\/$/, '');
-        const path = String(this.remoteRegistry.resolvePath || '/api/gensokyo/domains').replace(/\/$/, '');
-        const url = `${base}${path}/${encodeURIComponent(domainKey)}`;
+        const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, '');
+        const url = `${base}/rest/v1/gensokyo_domains?domain=eq.${encodeURIComponent(domainKey)}&select=domain,title,author,owner_id,visibility,active_version,versions,content_url,html_content,size_bytes&limit=1`;
 
         try {
             const response = await this.fetchWithTimeout(url, {
                 method: 'GET',
-                headers: this.getRemoteAuthHeaders()
-            }, this.remoteRegistry.timeoutMs || 6000);
+                headers: this.getSupabaseHeaders()
+            }, this.remoteRegistry.timeoutMs || 8000);
 
-            if (response.status === 404) {
-                return null;
-            }
+            if (!response.ok) return null;
+            const rows = await response.json();
+            if (!Array.isArray(rows) || !rows.length) return null;
 
-            if (!response.ok) {
-                return null;
-            }
-
-            const payload = await response.json();
-            const normalized = this.normalizeRemoteRoutePayload(payload, domainKey);
-            if (!normalized || !normalized.domain) return null;
-
+            const record = rows[0];
             const isOwner = this.passport.userId && this.passport.userId !== 'ID#0000' &&
-                (normalized.ownerId === this.passport.userId || (Array.isArray(this.passport.ownedDomains) && this.passport.ownedDomains.includes(normalized.domain)));
+                (record.owner_id === this.passport.userId || (Array.isArray(this.passport.ownedDomains) && this.passport.ownedDomains.includes(record.domain)));
 
-            if (normalized.visibility === 'private' && !isOwner) {
+            if (record.visibility === 'private' && !isOwner) {
                 return {
-                    domain: normalized.domain,
+                    domain: record.domain,
                     isPrivateBlocked: true,
-                    title: normalized.title,
-                    author: normalized.author,
+                    title: record.title,
+                    author: record.author,
                     fromRemoteRegistry: true
                 };
             }
 
-            let htmlContent = normalized.htmlContent;
-            if (!htmlContent && this.isAllowedRemoteContentUrl(normalized.contentUrl)) {
+            let htmlContent = record.html_content;
+            if (!htmlContent && record.content_url && this.isAllowedRemoteContentUrl(record.content_url)) {
                 try {
-                    const contentResponse = await this.fetchWithTimeout(normalized.contentUrl, {
-                        method: 'GET'
-                    }, this.remoteRegistry.timeoutMs || 6000);
-                    if (contentResponse.ok) {
-                        htmlContent = await contentResponse.text();
-                    }
-                } catch (contentErr) {
-                    console.warn('No se pudo obtener html remoto del bucket/CDN', contentErr);
+                    const contentRes = await this.fetchWithTimeout(record.content_url, { method: 'GET' }, 6000);
+                    if (contentRes.ok) htmlContent = await contentRes.text();
+                } catch (cErr) {
+                    console.warn('Fallo obteniendo HTML de CDN/Bucket', cErr);
                 }
             }
 
-            if (!htmlContent || typeof htmlContent !== 'string') {
-                return null;
-            }
+            if (!htmlContent || typeof htmlContent !== 'string') return null;
 
             const routeInfo = {
-                domain: normalized.domain,
-                title: normalized.title,
-                activeVersion: normalized.activeVersion,
-                versions: normalized.versions,
-                ownerId: normalized.ownerId,
-                author: normalized.author,
-                targetUrl: normalized.contentUrl || `${base}/cdn/${encodeURIComponent(normalized.domain)}/${encodeURIComponent(normalized.activeVersion)}/index.html`,
+                domain: record.domain,
+                title: record.title,
+                activeVersion: record.active_version || 'v1',
+                versions: Array.isArray(record.versions) ? record.versions : ['v1'],
+                ownerId: record.owner_id,
+                author: record.author,
+                targetUrl: record.content_url || null,
                 htmlContent,
-                sizeBytes: normalized.sizeBytes || htmlContent.length,
-                isEmptySite: this.isHtmlContentEmpty ? this.isHtmlContentEmpty(htmlContent) : false,
+                sizeBytes: record.size_bytes || htmlContent.length,
                 isUserSite: true,
                 fromRemoteRegistry: true
             };
@@ -742,7 +752,7 @@ const GensokyoApp = {
 
             return routeInfo;
         } catch (err) {
-            console.warn('Fallo consulta de registro remoto. Se usará fallback local.', err);
+            console.warn('Fallo consultando dominio remoto en Supabase', err);
             return null;
         }
     },
@@ -750,47 +760,64 @@ const GensokyoApp = {
     async publishDomainVersionToRegistry(domainName, versionTag, reason = 'update') {
         const domainKey = this.normalizeDomainKey(domainName);
         const domainObj = this.userDomains[domainKey];
-        if (!domainKey || !domainObj || !this.isRemoteRegistryEnabled()) return false;
+        if (!domainKey || !domainObj || !this.remoteRegistry?.enabled || !this.remoteRegistry.supabaseUrl) return false;
 
         const activeVersion = versionTag || domainObj.activeVersion || 'v1';
         const versionObj = domainObj.versions && domainObj.versions[activeVersion] ? domainObj.versions[activeVersion] : null;
         const htmlContent = versionObj ? versionObj.htmlContent : (domainObj.htmlContent || '');
 
-        const base = String(this.remoteRegistry.apiBase || '').replace(/\/$/, '');
-        const path = String(this.remoteRegistry.publishPath || '/api/gensokyo/publish');
-        const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
-
-        const payload = {
-            domain: domainKey,
-            title: domainObj.title || domainKey,
-            author: domainObj.author || this.passport.username,
-            ownerId: domainObj.ownerId || this.passport.userId,
-            visibility: domainObj.visibility || 'public',
-            badgeUrl: domainObj.badgeUrl || null,
-            badgeText: domainObj.badgeText || null,
-            activeVersion,
-            reason,
-            publishedAt: new Date().toISOString(),
-            sizeBytes: htmlContent ? htmlContent.length : 0,
-            htmlContent
-        };
+        const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, '');
+        const bucket = this.remoteRegistry.bucketName || 'gensokyo-sites';
+        const objectPath = `${encodeURIComponent(domainKey)}/${encodeURIComponent(activeVersion)}/index.html`;
+        const storageUrl = `${base}/storage/v1/object/${bucket}/${objectPath}`;
+        const publicCdnUrl = `${base}/storage/v1/object/public/${bucket}/${objectPath}`;
 
         try {
-            const response = await this.fetchWithTimeout(url, {
-                method: 'POST',
-                headers: this.getRemoteAuthHeaders(),
-                body: JSON.stringify(payload)
-            }, this.remoteRegistry.timeoutMs || 6000);
+            // 1. Subir archivo empaquetado al Bucket de Supabase Storage
+            try {
+                await this.fetchWithTimeout(storageUrl, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': this.remoteRegistry.supabaseAnonKey,
+                        'Authorization': `Bearer ${this.remoteRegistry.supabaseAnonKey}`,
+                        'Content-Type': 'text/html; charset=utf-8',
+                        'x-upsert': 'true'
+                    },
+                    body: htmlContent
+                }, this.remoteRegistry.timeoutMs || 8000);
+            } catch (storageErr) {
+                console.warn('Aviso: Storage upload omitido o pendiente de bucket:', storageErr);
+            }
 
-            if (!response.ok) {
-                console.warn('Publicación remota rechazada', response.status, response.statusText);
+            // 2. Registrar metadatos y verificar propiedad del dominio vía RPC
+            const rpcRes = await this.fetchWithTimeout(`${base}/rest/v1/rpc/publish_gensokyo_domain`, {
+                method: 'POST',
+                headers: this.getSupabaseHeaders(),
+                body: JSON.stringify({
+                    p_domain: domainKey,
+                    p_title: domainObj.title || domainKey,
+                    p_author: domainObj.author || this.passport.username,
+                    p_owner_id: domainObj.ownerId || this.passport.userId,
+                    p_token: this.passport.oauthToken,
+                    p_visibility: domainObj.visibility || 'public',
+                    p_badge_url: domainObj.badgeUrl || null,
+                    p_badge_text: domainObj.badgeText || null,
+                    p_active_version: activeVersion,
+                    p_html_content: htmlContent,
+                    p_content_url: publicCdnUrl
+                })
+            }, this.remoteRegistry.timeoutMs || 8000);
+
+            if (!rpcRes.ok) {
+                console.warn('RPC publish_gensokyo_domain rechazada:', rpcRes.status, await rpcRes.text());
                 return false;
             }
 
             this.clearRemoteDomainCache(domainKey);
+            this._remoteDirectoryCache = null;
             return true;
         } catch (err) {
-            console.warn('Publicación remota no disponible (fallback local activo)', err);
+            console.warn('Error publicando en Supabase (fallback local activo):', err);
             return false;
         }
     },
@@ -872,6 +899,167 @@ const GensokyoApp = {
 
     showDonationModal() {},
     hideDonationModal() {},
+
+    showSupportModal() {
+        const modal = document.getElementById('th-support-modal');
+        if (!modal) return;
+        const banner = document.getElementById('support-status-banner');
+        if (banner) {
+            banner.className = 'th-form-error-banner hidden';
+            banner.style.display = 'none';
+            banner.innerText = '';
+        }
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            document.getElementById('support-email-input')?.focus();
+        }, 80);
+    },
+
+    hideSupportModal() {
+        const modal = document.getElementById('th-support-modal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+    },
+
+    async submitSupportMessage() {
+        const emailInput = document.getElementById('support-email-input');
+        const titleInput = document.getElementById('support-title-input');
+        const descInput = document.getElementById('support-desc-input');
+        const submitBtn = document.getElementById('support-submit-btn');
+        const banner = document.getElementById('support-status-banner');
+
+        const email = emailInput ? emailInput.value.trim() : '';
+        const title = titleInput ? titleInput.value.trim() : '';
+        const desc = descInput ? descInput.value.trim() : '';
+
+        if (!email || !title || !desc) {
+            if (banner) {
+                banner.className = 'th-form-error-banner';
+                banner.style.display = 'block';
+                banner.style.borderColor = 'var(--th-crimson)';
+                banner.style.background = 'rgba(166, 27, 50, 0.15)';
+                banner.style.color = 'var(--th-crimson)';
+                banner.innerText = 'Por favor completa todos los campos requeridos.';
+            }
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            if (banner) {
+                banner.className = 'th-form-error-banner';
+                banner.style.display = 'block';
+                banner.style.borderColor = 'var(--th-crimson)';
+                banner.style.background = 'rgba(166, 27, 50, 0.15)';
+                banner.style.color = 'var(--th-crimson)';
+                banner.innerText = 'Por favor ingresa un correo electrónico válido.';
+            }
+            return;
+        }
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Enviando...';
+        }
+        if (banner) {
+            banner.style.display = 'none';
+        }
+
+        try {
+            const base = (this.remoteRegistry && this.remoteRegistry.supabaseUrl ? this.remoteRegistry.supabaseUrl : 'https://tgtzexzgdqxjezjxrium.supabase.co').replace(/\/$/, '');
+            const headers = this.getSupabaseHeaders ? this.getSupabaseHeaders() : {
+                'Content-Type': 'application/json',
+                'apikey': this.remoteRegistry.supabaseAnonKey,
+                'Authorization': `Bearer ${this.remoteRegistry.supabaseAnonKey}`
+            };
+
+            let sentOk = false;
+
+            // 1. Invocar RPC segura submit_support_ticket (envía correo de fondo y oculta la dirección privada)
+            try {
+                const rpcRes = await this.fetchWithTimeout(`${base}/rest/v1/rpc/submit_support_ticket`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        p_email: email,
+                        p_title: title,
+                        p_description: desc
+                    })
+                }, 8000);
+
+                if (rpcRes.ok) {
+                    sentOk = true;
+                }
+            } catch (rpcErr) {
+                console.warn('RPC submit_support_ticket no respondió, intentando inserción en tabla:', rpcErr);
+            }
+
+            // 2. Fallback de inserción directa a la tabla gensokyo_support_messages
+            if (!sentOk) {
+                const insertRes = await this.fetchWithTimeout(`${base}/rest/v1/gensokyo_support_messages`, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify({
+                        sender_email: email,
+                        subject: title,
+                        message: desc
+                    })
+                }, 8000);
+
+                if (insertRes.ok || insertRes.status === 201) {
+                    sentOk = true;
+                }
+            }
+
+            if (sentOk) {
+                if (banner) {
+                    banner.className = 'th-form-error-banner';
+                    banner.style.display = 'block';
+                    banner.style.borderColor = '#10b981';
+                    banner.style.background = 'rgba(16, 185, 129, 0.15)';
+                    banner.style.color = '#10b981';
+                    banner.innerText = '✓ ¡Mensaje enviado con éxito! Te responderemos a la brevedad.';
+                }
+                if (emailInput) emailInput.value = '';
+                if (titleInput) titleInput.value = '';
+                if (descInput) descInput.value = '';
+
+                if (typeof this.showToastNotification === 'function') {
+                    this.showToastNotification('Mensaje de soporte enviado correctamente', 'success');
+                }
+
+                setTimeout(() => {
+                    this.hideSupportModal();
+                    if (banner) {
+                        banner.style.display = 'none';
+                        banner.style.borderColor = '';
+                        banner.style.background = '';
+                        banner.style.color = '';
+                    }
+                }, 1800);
+            } else {
+                throw new Error('No se pudo guardar el mensaje.');
+            }
+        } catch (err) {
+            console.error('Error enviando ticket de soporte:', err);
+            if (banner) {
+                banner.className = 'th-form-error-banner';
+                banner.style.display = 'block';
+                banner.style.borderColor = 'var(--th-crimson)';
+                banner.style.background = 'rgba(166, 27, 50, 0.15)';
+                banner.style.color = 'var(--th-crimson)';
+                banner.innerText = 'Hubo un error al enviar tu consulta. Por favor inténtalo de nuevo.';
+            }
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Enviar Mensaje';
+            }
+        }
+    },
 
     /* HASHEO SEGURO DE CONTRASEÑAS CON WEB CRYPTO API (SHA-256) */
     async hashPassword(password) {

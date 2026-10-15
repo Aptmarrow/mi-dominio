@@ -8,8 +8,11 @@ secretGroup = 0
 entropy = 2.5
 
   [rules.allowlist]
-  description = "Ignore default guest placeholder token"
-  regexes = ['''gx_live_token_0000_nameless_youkai_key''']
+  description = "Ignore default guest placeholder token and Supabase publishable key"
+  regexes = [
+    '''gx_live_token_0000_nameless_youkai_key''',
+    '''sb_publishable_[A-Za-z0-9_\-]+'''
+  ]
 
 [[rules]]
 id = "possible-api-key-generic"

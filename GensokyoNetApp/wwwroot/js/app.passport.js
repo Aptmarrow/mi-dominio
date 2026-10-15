@@ -254,6 +254,18 @@ Object.assign(GensokyoApp, {
                 this.saveAccountsDB();
             }
 
+            if (this.passport.isRegistered && this.remoteRegistry && this.remoteRegistry.supabaseUrl) {
+                const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, '');
+                fetch(`${base}/rest/v1/rpc/update_gensokyo_avatar`, {
+                    method: 'POST',
+                    headers: this.getSupabaseHeaders(),
+                    body: JSON.stringify({
+                        p_user_id: this.passport.userId,
+                        p_avatar_url: this.passport.avatarUrl
+                    })
+                }).catch(() => {});
+            }
+
             this.savePassportData();
             this.hideAvatarCropModal();
             this.tempAvatarDataUrl = null;
@@ -342,10 +354,6 @@ Object.assign(GensokyoApp, {
             return { ok: false, message: 'Por favor ingresa un nombre de usuario válido.' };
         }
 
-        if (this.accountsDB[key]) {
-            return { ok: false, message: `El usuario "${cleanName}" ya está registrado. Por favor inicia sesión o elige otro nombre.` };
-        }
-
         if (password.length < 8) {
             return { ok: false, message: 'Error: La contraseña debe tener como mínimo 8 caracteres.' };
         }
@@ -360,6 +368,44 @@ Object.assign(GensokyoApp, {
 
         const passwordHash = await this.hashPassword(password);
         const secureToken = this.generateSecureOAuthToken(this.passport.userId);
+        const safeAvatar = this.sanitizeAvatarUrl(this.passport.avatarUrl);
+
+        // 1. Registro en la nube (Supabase RPC) si está habilitado
+        if (this.remoteRegistry && this.remoteRegistry.supabaseUrl) {
+            try {
+                const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, '');
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+                const resp = await fetch(`${base}/rest/v1/rpc/register_gensokyo_user`, {
+                    method: 'POST',
+                    headers: this.getSupabaseHeaders(),
+                    signal: controller.signal,
+                    body: JSON.stringify({
+                        p_username: cleanName,
+                        p_user_id: this.passport.userId,
+                        p_password_hash: passwordHash,
+                        p_avatar_url: safeAvatar
+                    })
+                });
+                clearTimeout(timeoutId);
+
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data && data.ok === false) {
+                        return { ok: false, message: data.message || `El usuario "${cleanName}" ya está registrado.` };
+                    }
+                } else if (resp.status === 400 || resp.status === 409) {
+                    const err = await resp.json().catch(() => ({}));
+                    return { ok: false, message: err.message || `El usuario "${cleanName}" ya está registrado.` };
+                }
+            } catch (netErr) {
+                console.warn('Registro en la nube no disponible o timeout; procediendo con registro local:', netErr);
+            }
+        }
+
+        if (this.accountsDB[key]) {
+            return { ok: false, message: `El usuario "${cleanName}" ya está registrado localmente.` };
+        }
 
         this.passport.username = cleanName;
         this.passport.isRegistered = true;
@@ -370,7 +416,7 @@ Object.assign(GensokyoApp, {
             username: cleanName,
             userId: this.passport.userId,
             passwordHash: passwordHash,
-            avatarUrl: this.sanitizeAvatarUrl(this.passport.avatarUrl),
+            avatarUrl: safeAvatar,
             ownedDomains: this.passport.ownedDomains,
             createdAt: new Date().toISOString()
         };
@@ -443,11 +489,76 @@ Object.assign(GensokyoApp, {
         const password = String(payload?.password || '').trim();
         const key = cleanName.toLowerCase();
 
-        if (!cleanName || !this.accountsDB[key]) {
-            return { ok: false, message: `El usuario "${cleanName}" no está registrado. Crea una cuenta primero.` };
+        if (!cleanName || !password) {
+            return { ok: false, message: 'Por favor ingresa usuario y contraseña.' };
         }
 
         const passwordHash = await this.hashPassword(password);
+
+        // 1. Intentar autenticar contra Supabase en la nube
+        if (this.remoteRegistry && this.remoteRegistry.supabaseUrl) {
+            try {
+                const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, '');
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+                const resp = await fetch(`${base}/rest/v1/rpc/login_gensokyo_user`, {
+                    method: 'POST',
+                    headers: this.getSupabaseHeaders(),
+                    signal: controller.signal,
+                    body: JSON.stringify({
+                        p_username: cleanName,
+                        p_password_hash: passwordHash
+                    })
+                });
+                clearTimeout(timeoutId);
+
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data && data.ok === false) {
+                        return { ok: false, message: data.message || 'Credenciales incorrectas.' };
+                    }
+
+                    if (data && data.ok) {
+                        const cloudUserId = data.userId || this.passport.userId;
+                        const secureToken = this.generateSecureOAuthToken(cloudUserId);
+                        const cloudDomains = Array.isArray(data.ownedDomains) ? data.ownedDomains : [];
+
+                        this.passport = {
+                            isLoggedIn: true,
+                            isRegistered: true,
+                            userId: cloudUserId,
+                            username: data.username || cleanName,
+                            avatarUrl: this.sanitizeAvatarUrl(data.avatarUrl || this.passport.avatarUrl),
+                            ownedDomains: cloudDomains,
+                            oauthToken: secureToken
+                        };
+
+                        this.accountsDB[key] = {
+                            username: data.username || cleanName,
+                            userId: cloudUserId,
+                            passwordHash: passwordHash,
+                            avatarUrl: this.passport.avatarUrl,
+                            ownedDomains: cloudDomains,
+                            updatedAt: new Date().toISOString()
+                        };
+
+                        this.saveAccountsDB();
+                        this.savePassportData();
+                        this.onSessionChanged();
+                        this.showToastNotification(`¡Bienvenido de vuelta, ${this.passport.username}!`, 'success');
+                        return { ok: true, message: `Bienvenido ${this.passport.username}` };
+                    }
+                }
+            } catch (cloudErr) {
+                console.warn('Autenticación en la nube no disponible o timeout; usando fallback local:', cloudErr);
+            }
+        }
+
+        // 2. Fallback local si la nube no está configurada o falló la conexión
+        if (!this.accountsDB[key]) {
+            return { ok: false, message: `El usuario "${cleanName}" no está registrado. Crea una cuenta primero.` };
+        }
+
         const acc = this.accountsDB[key];
         const expectedHash = acc.passwordHash || (acc.password ? await this.hashPassword(acc.password) : '');
 
