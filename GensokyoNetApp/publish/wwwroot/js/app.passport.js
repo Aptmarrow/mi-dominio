@@ -289,7 +289,7 @@ Object.assign(GensokyoApp, {
         const passwordHash = await this.hashPassword(password);
         const secureToken = this.generateSecureOAuthToken(this.passport.userId);
         const safeAvatar = this.sanitizeAvatarUrl(this.passport.avatarUrl);
-        if (this.remoteRegistry && this.remoteRegistry.supabaseUrl) {
+        if (this.remoteRegistry && this.remoteRegistry.supabaseUrl && this.remoteRegistry.enabled !== false) {
             try {
                 const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, "");
                 const controller = new AbortController;
@@ -311,25 +311,36 @@ Object.assign(GensokyoApp, {
                     if (data && data.ok === false) {
                         return {
                             ok: false,
-                            message: data.message || `El usuario "${cleanName}" ya está registrado.`
+                            message: data.message || `El usuario "${cleanName}" ya está registrado en GensokyoNet.`
                         };
                     }
                 } else if (resp.status === 400 || resp.status === 409) {
                     const err = await resp.json().catch(() => ({}));
                     return {
                         ok: false,
-                        message: err.message || `El usuario "${cleanName}" ya está registrado.`
+                        message: err.message || `El usuario "${cleanName}" ya está registrado en GensokyoNet.`
+                    };
+                } else {
+                    const err = await resp.json().catch(() => ({}));
+                    return {
+                        ok: false,
+                        message: err.message || `Error del servidor al registrar pasaporte (${resp.status}).`
                     };
                 }
             } catch (netErr) {
-                console.warn("Registro en la nube no disponible o timeout; procediendo con registro local:", netErr);
+                console.error("Fallo de red en registro de pasaporte:", netErr);
+                return {
+                    ok: false,
+                    message: "Error de conexión: Se requiere conexión a la red de GensokyoNet para registrar un pasaporte nuevo y validar la exclusividad de tu nombre."
+                };
             }
-        }
-        if (this.accountsDB[key]) {
-            return {
-                ok: false,
-                message: `El usuario "${cleanName}" ya está registrado localmente.`
-            };
+        } else {
+            if (this.accountsDB[key]) {
+                return {
+                    ok: false,
+                    message: `El usuario "${cleanName}" ya está registrado localmente.`
+                };
+            }
         }
         this.passport.username = cleanName;
         this.passport.isRegistered = true;
@@ -438,7 +449,44 @@ Object.assign(GensokyoApp, {
                     if (data && data.ok) {
                         const cloudUserId = data.userId || this.passport.userId;
                         const secureToken = this.generateSecureOAuthToken(cloudUserId);
-                        const cloudDomains = Array.isArray(data.ownedDomains) ? data.ownedDomains : [];
+                        let cloudDomains = Array.isArray(data.ownedDomains) ? [...data.ownedDomains] : [];
+                        try {
+                            const domResp = await fetch(`${base}/rest/v1/gensokyo_domains?owner_id=eq.${encodeURIComponent(cloudUserId)}&select=domain,title,author,owner_id,visibility,active_version,versions,html_content,content_url,updated_at`, {
+                                method: "GET",
+                                headers: this.getSupabaseHeaders()
+                            });
+                            if (domResp.ok) {
+                                const domList = await domResp.json();
+                                if (Array.isArray(domList)) {
+                                    domList.forEach(item => {
+                                        if (item.domain && !cloudDomains.includes(item.domain)) {
+                                            cloudDomains.push(item.domain);
+                                        }
+                                        if (item.domain) {
+                                            const normDom = item.domain.toLowerCase();
+                                            const vfs = typeof GensokyoVFS !== "undefined" && GensokyoVFS.createDefaultTree ? GensokyoVFS.createDefaultTree() : { files: {}, folders: [] };
+                                            const html = item.html_content || `<!DOCTYPE html><html><body><h1>gensokyo://${normDom}</h1></body></html>`;
+                                            if (!vfs.files["index.html"]) vfs.files["index.html"] = html;
+                                            if (!this.userDomains[normDom] || this.userDomains[normDom].ownerId === cloudUserId) {
+                                                this.userDomains[normDom] = {
+                                                    title: item.title || normDom,
+                                                    author: item.author || cleanName,
+                                                    ownerId: cloudUserId,
+                                                    visibility: item.visibility || "public",
+                                                    activeVersion: item.active_version || "v1",
+                                                    versions: item.versions || { v1: { htmlContent: html, vfs: vfs, updatedAt: item.updated_at } },
+                                                    vfs: vfs,
+                                                    htmlContent: html
+                                                };
+                                            }
+                                        }
+                                    });
+                                    this.saveUserDomains();
+                                }
+                            }
+                        } catch (syncDomErr) {
+                            console.warn("Aviso: No se pudieron sincronizar dominios desde Supabase:", syncDomErr);
+                        }
                         this.passport = {
                             isLoggedIn: true,
                             isRegistered: true,

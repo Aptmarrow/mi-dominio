@@ -357,7 +357,7 @@ const GensokyoApp = {
         }
         try {
             const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, "");
-            const url = `${base}/rest/v1/gensokyo_domains?visibility=eq.public&select=domain,title,author,active_version,badge_url,badge_text,updated_at&order=updated_at.desc`;
+            const url = `${base}/rest/v1/gensokyo_domains?visibility=eq.public&select=domain,title,author,owner_id,active_version,badge_url,badge_text,updated_at&order=updated_at.desc`;
             const res = await this.fetchWithTimeout(url, {
                 method: "GET",
                 headers: this.getSupabaseHeaders()
@@ -368,6 +368,7 @@ const GensokyoApp = {
                     domain: r.domain,
                     title: r.title,
                     author: r.author,
+                    ownerId: r.owner_id,
                     activeVersion: r.active_version,
                     badgeUrl: r.badge_url,
                     badgeText: r.badge_text,
@@ -679,6 +680,18 @@ const GensokyoApp = {
         const domainKey = this.normalizeDomainKey(domainName);
         const domainObj = this.userDomains[domainKey];
         if (!domainKey || !domainObj || !this.remoteRegistry?.enabled || !this.remoteRegistry.supabaseUrl) return false;
+        const myId = this.passport ? this.passport.userId : "ID#0000";
+        if (domainObj.ownerId && domainObj.ownerId !== myId) {
+            console.warn("Intento no autorizado de publicar dominio ajeno:", domainKey, "Owner:", domainObj.ownerId, "Caller:", myId);
+            return false;
+        }
+        if (Array.isArray(this._remoteDirectoryCache)) {
+            const rem = this._remoteDirectoryCache.find(r => (r.domain || "").toLowerCase() === domainKey.toLowerCase());
+            if (rem && rem.ownerId && rem.ownerId !== myId) {
+                console.warn("Intento no autorizado de publicar dominio ajeno verificado en red:", domainKey, "Owner:", rem.ownerId, "Caller:", myId);
+                return false;
+            }
+        }
         const activeVersion = versionTag || domainObj.activeVersion || "v1";
         const versionObj = domainObj.versions && domainObj.versions[activeVersion] ? domainObj.versions[activeVersion] : null;
         const htmlContent = versionObj ? versionObj.htmlContent : domainObj.htmlContent || "";

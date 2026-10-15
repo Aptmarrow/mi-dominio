@@ -690,12 +690,12 @@ Object.assign(GensokyoApp, {
             return;
         }
         if (domainToClaim) {
-            this.claimDomainForCurrentUser(domainToClaim);
+            await this.claimDomainForCurrentUser(domainToClaim);
         } else {
             this.renderRegisterView("register");
         }
     },
-    submitClaimDomain() {
+    async submitClaimDomain() {
         const domIn = document.getElementById("gx-claim-input-domain");
         const errBox = document.getElementById("gx-claim-domain-error");
         const rawDom = (domIn ? domIn.value : "").trim().toLowerCase().replace(/^gensokyo:\/\//i, "");
@@ -707,25 +707,74 @@ Object.assign(GensokyoApp, {
             }
             return;
         }
-        const res = this.claimDomainForCurrentUser(clean);
+        const res = await this.claimDomainForCurrentUser(clean);
         if (!res.ok && errBox) {
             errBox.textContent = res.message;
             errBox.style.display = "block";
         }
     },
-    claimDomainForCurrentUser(domainName) {
+    async claimDomainForCurrentUser(domainName) {
         const clean = String(domainName || "").trim().toLowerCase().replace(/^gensokyo:\/\//i, "").replace(/[^a-z0-9.-]/g, "");
         if (!clean) return {
             ok: false,
             message: "Nombre de dominio no válido."
         };
-        const existing = this.userDomains[clean];
+        if (typeof GensokyoSeedData !== "undefined" && GensokyoSeedData.domains && GensokyoSeedData.domains[clean]) {
+            return {
+                ok: false,
+                message: `El dominio "gensokyo://${clean}" es un dominio canónico protegido del sistema y no puede ser reclamado.`
+            };
+        }
         const myId = this.passport ? this.passport.userId : "ID#0000";
+        if (!this.passport || !this.passport.isRegistered || myId === "ID#0000") {
+            return {
+                ok: false,
+                message: "Debes registrar o iniciar sesión con un Pasaporte válido para reclamar un dominio."
+            };
+        }
+        const existing = this.userDomains[clean];
         if (existing && existing.ownerId && existing.ownerId !== myId) {
             return {
                 ok: false,
-                message: `El dominio "gensokyo://${clean}" ya fue reclamado por otro creador.`
+                message: `El dominio "gensokyo://${clean}" ya fue reclamado por otro creador (${existing.author || existing.ownerId}).`
             };
+        }
+        if (Array.isArray(this._remoteDirectoryCache)) {
+            const remoteItem = this._remoteDirectoryCache.find(r => (r.domain || "").toLowerCase() === clean);
+            if (remoteItem && remoteItem.ownerId && remoteItem.ownerId !== myId) {
+                return {
+                    ok: false,
+                    message: `El dominio "gensokyo://${clean}" ya pertenece a otro creador (${remoteItem.author || remoteItem.ownerId}) en la red GensokyoNet.`
+                };
+            }
+        }
+        if (this.remoteRegistry && this.remoteRegistry.supabaseUrl && this.remoteRegistry.enabled !== false) {
+            try {
+                const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, "");
+                const res = await this.fetchWithTimeout(`${base}/rest/v1/gensokyo_domains?domain=eq.${encodeURIComponent(clean)}&select=domain,owner_id,author&limit=1`, {
+                    method: "GET",
+                    headers: this.getSupabaseHeaders()
+                }, 4500);
+                if (res.ok) {
+                    const rows = await res.json();
+                    if (Array.isArray(rows) && rows.length > 0) {
+                        const found = rows[0];
+                        if (found.owner_id && found.owner_id !== myId) {
+                            return {
+                                ok: false,
+                                message: `El dominio "gensokyo://${clean}" ya pertenece a ${found.author || found.owner_id} en GensokyoNet.`
+                            };
+                        }
+                    }
+                }
+            } catch (netErr) {
+                if (!existing) {
+                    return {
+                        ok: false,
+                        message: `Se requiere conexión a Internet para verificar si "gensokyo://${clean}" está disponible en la red.`
+                    };
+                }
+            }
         }
         if (!existing) {
             const vfs = typeof GensokyoVFS !== "undefined" && GensokyoVFS.createDefaultTree ? GensokyoVFS.createDefaultTree() : {
