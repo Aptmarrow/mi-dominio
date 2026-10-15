@@ -1,12 +1,22 @@
 /**
  * ==========================================================================
  * js/app.vfs.js
- * Sistema de Archivos Virtual Jerárquico (Árbol de directorios real + I/O)
- * Soporta carpetas anidadas, resolución de rutas relativas, Importar Carpeta/ZIP
- * y Exportar ZIP nativo (Generador PKZIP CRC32 sin dependencias externas).
+ * Motor de Archivos Virtual (VFS) + Empaquetador de Builds y Assets Binarios
+ * Soporta importar cualquier carpeta compilada (dist/, build/, public/) con
+ * subcarpetas, imágenes, fuentes, audio y WASM para publicarla en GensokyoNet.
  * ==========================================================================
  */
 (function () {
+    const BINARY_MIMES = {
+        png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+        gif: 'image/gif', webp: 'image/webp', avif: 'image/avif',
+        ico: 'image/x-icon', bmp: 'image/bmp',
+        mp3: 'audio/mpeg', ogg: 'audio/ogg', wav: 'audio/wav', flac: 'audio/flac',
+        mp4: 'video/mp4', webm: 'video/webm',
+        woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf',
+        wasm: 'application/wasm', pdf: 'application/pdf'
+    };
+
     const normalizePath = (p) => String(p || '')
         .replace(/\\/g, '/')
         .replace(/^\/+|\/+$/g, '')
@@ -36,11 +46,14 @@
 
     const resolveRelativePath = (fromFile, relativeTarget) => {
         if (!relativeTarget) return '';
-        if (/^(https?:|data:|blob:|gensokyo:|outside:)/i.test(relativeTarget)) return relativeTarget;
-        if (relativeTarget.startsWith('/')) return normalizePath(relativeTarget);
+        const cleanTarget = String(relativeTarget).split('?')[0].split('#')[0].trim();
+        if (/^(https?:|data:|blob:|mailto:|tel:|javascript:|gensokyo:|outside:)/i.test(cleanTarget)) {
+            return relativeTarget;
+        }
+        if (cleanTarget.startsWith('/')) return normalizePath(cleanTarget);
 
         const baseParts = splitPath(dirname(fromFile));
-        const relParts = relativeTarget.replace(/\\/g, '/').split('/');
+        const relParts = cleanTarget.replace(/\\/g, '/').split('/');
 
         for (const seg of relParts) {
             if (!seg || seg === '.') continue;
@@ -48,6 +61,22 @@
             else baseParts.push(seg);
         }
         return baseParts.join('/');
+    };
+
+    const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+
+    const u8ToBase64DataUrl = (u8, mime) => {
+        let binary = '';
+        const chunk = 0x8000;
+        for (let i = 0; i < u8.length; i += chunk) {
+            binary += String.fromCharCode.apply(null, u8.subarray(i, i + chunk));
+        }
+        return `data:${mime};base64,${btoa(binary)}`;
     };
 
     // Tabla CRC32 para empaquetar archivos .zip estándar en memoria sin librerías
@@ -70,6 +99,7 @@
     };
 
     const GensokyoVFS = {
+        BINARY_MIMES,
         normalizePath,
         dirname,
         basename,
@@ -83,62 +113,24 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Santuario Doujin</title>
-    <link rel="stylesheet" href="src/styles/main.css">
+    <title>Nodo Intranet GensokyoNet</title>
+    <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
-    <main class="shrine-shell">
-        <span class="badge">GENSOKYONET VFS NODE</span>
-        <h1 id="title">Koumakan Studio</h1>
-        <p>Click derecho en el explorador para crear archivos/carpetas o usa <code>Ctrl+Shift+P</code>.</p>
-        <button id="action-btn">Ejecutar Spell Card</button>
-        <pre id="runtime-output"></pre>
+    <main class="card">
+        <span class="tag">GENSOKYONET INTRANET</span>
+        <h1>Sitio Listo para Despliegue</h1>
+        <p>Desarrolla en tu IDE favorito (VS Code, Cursor, etc.) y testea tu puerto local directo en <code>gensokyo://localhost:puerto</code> o sube tu carpeta compilada aquí.</p>
     </main>
-    <script src="src/app/main.js"><\/script>
+    <script src="scripts/app.js"><\/script>
 </body>
 </html>`,
-                    'src/styles/main.css': `body {
-    margin: 0;
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-    background: #fcf7f1;
-    color: #2b181c;
-    font-family: system-ui, sans-serif;
-}
-.shrine-shell {
-    padding: 2rem;
-    border-radius: 12px;
-    background: #ffffff;
-    border: 2px solid #a61b32;
-    box-shadow: 0 12px 28px rgba(166, 27, 50, 0.14);
-    max-width: 480px;
-    text-align: center;
-}
-.badge {
-    font-size: 0.7rem;
-    font-weight: 800;
-    color: #a61b32;
-    letter-spacing: 1px;
-}
-button {
-    margin-top: 1rem;
-    padding: 0.6rem 1.2rem;
-    background: #a61b32;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-weight: 700;
-    cursor: pointer;
-}`,
-                    'src/app/main.js': `console.info("VFS jerárquico cargado desde src/app/main.js");
-document.getElementById('action-btn')?.addEventListener('click', () => {
-    const out = document.getElementById('runtime-output');
-    if (out) out.textContent = "Spell Card activada @ " + new Date().toLocaleTimeString();
-    console.log("Disparo registrado desde subcarpeta src/app/main.js");
-});`
+                    'styles/main.css': `body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #fcf7f1; color: #2b181c; font-family: system-ui, sans-serif; }
+.card { max-width: 480px; padding: 2rem; border-radius: 12px; background: #fff; border: 2px solid #a61b32; text-align: center; box-shadow: 0 10px 26px rgba(166,27,50,0.12); }
+.tag { font-size: 0.72rem; font-weight: 800; color: #a61b32; letter-spacing: 1px; }`,
+                    'scripts/app.js': `console.log("Nodo GensokyoNet activo.");`
                 },
-                folders: ['src', 'src/styles', 'src/app']
+                folders: ['styles', 'scripts']
             };
         },
 
@@ -148,9 +140,7 @@ document.getElementById('action-btn')?.addEventListener('click', () => {
             let current = '';
             for (const part of parts) {
                 current = current ? `${current}/${part}` : part;
-                if (!vfs.folders.includes(current)) {
-                    vfs.folders.push(current);
-                }
+                if (!vfs.folders.includes(current)) vfs.folders.push(current);
             }
         },
 
@@ -269,12 +259,10 @@ document.getElementById('action-btn')?.addEventListener('click', () => {
             const filesArray = Array.from(fileList || []);
             if (!filesArray.length) return null;
 
-            // Si suben un único archivo .zip, descomprimirlo manteniendo estructura de carpetas
             if (filesArray.length === 1 && filesArray[0].name.toLowerCase().endsWith('.zip')) {
                 return await this.importFromZipBuffer(await filesArray[0].arrayBuffer());
             }
 
-            // Detectar carpeta raíz común (webkitRelativePath) para quitar el prefijo externo
             const rawPaths = filesArray.map(f => normalizePath(f.webkitRelativePath || f.name));
             const firstSegments = rawPaths.map(p => splitPath(p)[0]).filter(Boolean);
             const stripRoot = firstSegments.length > 0 &&
@@ -283,16 +271,21 @@ document.getElementById('action-btn')?.addEventListener('click', () => {
                 ? `${firstSegments[0]}/`
                 : '';
 
-            for (let i = 0; i < filesArray.length; i++) {
-                const file = filesArray[i];
+            for (const file of filesArray) {
                 let relPath = normalizePath(file.webkitRelativePath || file.name);
                 if (stripRoot && relPath.startsWith(stripRoot)) {
                     relPath = relPath.slice(stripRoot.length);
                 }
                 if (!relPath || relPath.startsWith('.git/') || relPath.includes('node_modules/')) continue;
 
-                const text = await file.text();
-                this.upsertFile(vfs, relPath, text);
+                const ext = extname(relPath);
+                if (BINARY_MIMES[ext]) {
+                    const dataUrl = await readFileAsDataUrl(file);
+                    this.upsertFile(vfs, relPath, dataUrl);
+                } else {
+                    const text = await file.text();
+                    this.upsertFile(vfs, relPath, text);
+                }
             }
             return vfs;
         },
@@ -305,31 +298,35 @@ document.getElementById('action-btn')?.addEventListener('click', () => {
             let offset = 0;
 
             while (offset + 30 <= view.byteLength) {
-                const sig = view.getUint32(offset, true);
-                if (sig !== 0x04034b50) break; // Local file header signature
-
+                if (view.getUint32(offset, true) !== 0x04034b50) break;
                 const method = view.getUint16(offset + 8, true);
                 const compSize = view.getUint32(offset + 18, true);
                 const nameLen = view.getUint16(offset + 26, true);
                 const extraLen = view.getUint16(offset + 28, true);
-                const nameBytes = u8.subarray(offset + 30, offset + 30 + nameLen);
-                const rawName = decoder.decode(nameBytes);
+                const rawName = decoder.decode(u8.subarray(offset + 30, offset + 30 + nameLen));
                 const dataStart = offset + 30 + nameLen + extraLen;
                 const compData = u8.subarray(dataStart, dataStart + compSize);
 
                 const clean = normalizePath(rawName);
-                if (clean && !clean.startsWith('__MACOSX') && !clean.includes('node_modules/')) {
-                    if (rawName.endsWith('/')) {
-                        this.createFolder(vfs, clean);
-                    } else if (method === 0) {
-                        this.upsertFile(vfs, clean, decoder.decode(compData));
+                if (clean && !clean.startsWith('__MACOSX') && !clean.includes('node_modules/') && !rawName.endsWith('/')) {
+                    let rawBytes = null;
+                    if (method === 0) {
+                        rawBytes = compData;
                     } else if (method === 8 && typeof DecompressionStream !== 'undefined') {
                         const ds = new DecompressionStream('deflate-raw');
                         const writer = ds.writable.getWriter();
                         writer.write(compData);
                         writer.close();
-                        const decompressed = await new Response(ds.readable).arrayBuffer();
-                        this.upsertFile(vfs, clean, decoder.decode(new Uint8Array(decompressed)));
+                        rawBytes = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+                    }
+
+                    if (rawBytes) {
+                        const ext = extname(clean);
+                        if (BINARY_MIMES[ext]) {
+                            this.upsertFile(vfs, clean, u8ToBase64DataUrl(rawBytes, BINARY_MIMES[ext]));
+                        } else {
+                            this.upsertFile(vfs, clean, decoder.decode(rawBytes));
+                        }
                     }
                 }
                 offset = dataStart + compSize;
@@ -353,8 +350,8 @@ document.getElementById('action-btn')?.addEventListener('click', () => {
                 const lv = new DataView(localHeader.buffer);
                 lv.setUint32(0, 0x04034b50, true);
                 lv.setUint16(4, 20, true);
-                lv.setUint16(6, 0x0800, true); // UTF-8 flag
-                lv.setUint16(8, 0, true);      // Store (sin compresión para máxima velocidad)
+                lv.setUint16(6, 0x0800, true);
+                lv.setUint16(8, 0, true);
                 lv.setUint32(14, crc, true);
                 lv.setUint32(18, dataBytes.length, true);
                 lv.setUint32(22, dataBytes.length, true);

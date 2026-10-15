@@ -1,0 +1,87 @@
+/* ==========================================================================
+   GensokyoNet - Touhou Themes System (TH06 Scarlet Mist & TH07 Hakugyokurou)
+   ========================================================================== */
+
+:root {
+    /* Font Families */
+    --font-heading: 'Cinzel', 'Noto Sans JP', serif;
+    --font-body: 'Outfit', 'Noto Sans JP', sans-serif;
+
+    /* Theme Tokens Defaults (Scarlet Mist Pergamino) */
+    --th-bg-main: #fcf8f2;
+    --th-bg-header: #f5eee4;
+    --th-bg-sidebar: #f0e6d6;
+    --th-bg-card: #ffffff;
+    --th-border-warm: #e4d5c1;
+    
+    --th-crimson: #a61b32;
+    --th-crimson-dark: #801224;
+    --th-crimson-light: #f8e1e4;
+    --th-gold-accent: #d4af37;
+
+    --th-text-main: #2c221e;
+    --th-text-sub: #6c5a52;
+    --th-text-title: #7a1424;
+
+    --th-shadow: rgba(166, 27, 50, 0.08);
+}
+
+/* Reset Base */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-body);
+    background-color: var(--th-bg-main);
+    color: var(--th-text-main);
+    height: 100vh;
+    overflow: hidden;
+    margin: 0;
+}
+
+#gensokyo-app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
+
+/* Tema 1: Scarlet Mist (TH06 Pergamino Claro con Animación Niebla Roja) */
+body.theme-scarlet {
+    --th-bg-main: #fcf8f2;
+    --th-bg-header: #f5eee4;
+    --th-bg-sidebar: #f0e6d6;
+    --th-bg-card: #ffffff;
+    --th-border-warm: #e4d5c1;
+    --th-crimson: #a61b32;
+    --th-crimson-dark: #801224;
+    --th-crimson-light: #f8e1e4;
+    --th-text-main: #2c221e;
+    --th-text-sub: #6c5a52;
+    --th-text-title: #7a1424;
+    --th-shadow: rgba(166, 27, 50, 0.08);
+    background-image: radial-gradient(circle at 10% 20%, rgba(166, 27, 50, 0.04) 0%, transparent 40%),
+                      radial-gradient(circle at 90% 80%, rgba(166, 27, 50, 0.04) 0%, transparent 40%);
+}
+
+/* Tema 2: Hakugyokurou (TH07 Noche Oscura Mística con Cerezos) */
+body.theme-hakugyokurou {
+    --th-bg-main: #141118;
+    --th-bg-header: #1c1822;
+    --th-bg-sidebar: #221d2a;
+    --th-bg-card: #2a2434;
+    --th-border-warm: #423850;
+    --th-crimson: #d44d6c;
+    --th-crimson-dark: #a83652;
+    --th-crimson-light: #422030;
+    --th-text-main: #ede8f5;
+    --th-text-sub: #a69bb8;
+    --th-text-title: #f48fb1;
+    --th-shadow: rgba(0, 0, 0, 0.4);
+    background-image: radial-gradient(circle at 20% 30%, rgba(212, 77, 108, 0.12) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 70%, rgba(100, 60, 140, 0.15) 0%, transparent 50%);
+}

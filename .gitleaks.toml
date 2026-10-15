@@ -7,6 +7,10 @@ regex = '''gx_(live|oauth)_[A-Za-z0-9_\-]+'''
 secretGroup = 0
 entropy = 2.5
 
+  [rules.allowlist]
+  description = "Ignore default guest placeholder token"
+  regexes = ['''gx_live_token_0000_nameless_youkai_key''']
+
 [[rules]]
 id = "possible-api-key-generic"
 description = "Generic API key style string"

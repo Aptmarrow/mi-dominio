@@ -450,7 +450,13 @@
 
 .gx-viewport-wrapper.full-bleed {
     padding: 0 !important;
+    margin: 0 !important;
     overflow: hidden !important;
+    height: 100% !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 100% !important;
 }
 
 .gx-viewport {
@@ -470,22 +476,20 @@
     height: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 100% !important;
 }
 
-/* Footer Status Bar */
-.gx-statusbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--th-bg-header);
-    border-top: 1px solid var(--th-border-warm);
-    padding: 4px 16px;
-    font-size: 0.78rem;
-    color: var(--th-text-sub);
-}
-
+/* Footer Status Bar - Removido y oculto */
+.gx-statusbar,
 .gx-statusbar.hidden {
     display: none !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
 }
 
 .status-indicator {

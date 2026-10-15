@@ -10,6 +10,7 @@ Object.assign(GensokyoApp, {
         };
 
         this.tabs.push(newTab);
+        if (typeof this.saveTabsSession === 'function') this.saveTabsSession();
         this.switchTab(tabId);
     },
 
@@ -21,6 +22,7 @@ Object.assign(GensokyoApp, {
             this.tabs[0].title = 'Inicio';
             this.tabs[0].history = ['gensokyo://home'];
             this.tabs[0].historyIndex = 0;
+            if (typeof this.saveTabsSession === 'function') this.saveTabsSession();
             this.switchTab(this.tabs[0].id);
             return;
         }
@@ -28,7 +30,14 @@ Object.assign(GensokyoApp, {
         const index = this.tabs.findIndex((t) => t.id === tabId);
         if (index === -1) return;
 
+        const closingTab = this.tabs[index];
+        if (closingTab && closingTab.url && this.closedTabsStack) {
+            this.closedTabsStack.push({ url: closingTab.url, title: closingTab.title });
+            if (this.closedTabsStack.length > 20) this.closedTabsStack.shift();
+        }
+
         this.tabs.splice(index, 1);
+        if (typeof this.saveTabsSession === 'function') this.saveTabsSession();
         if (this.activeTabId === tabId) {
             const nextActive = this.tabs[Math.max(0, index - 1)];
             this.switchTab(nextActive.id);
@@ -42,6 +51,8 @@ Object.assign(GensokyoApp, {
         this.activeTabId = tabId;
         const activeTab = this.getActiveTab();
         if (!activeTab) return;
+
+        if (typeof this.saveTabsSession === 'function') this.saveTabsSession();
 
         this.renderTabsBar();
         this.updateUrlInput(activeTab.url);
@@ -128,7 +139,7 @@ Object.assign(GensokyoApp, {
         if (clean.startsWith('search')) return 'Búsqueda';
         if (clean === 'bunbunmaru.news') return 'Bunbunmaru';
         if (clean === 'reimu.shrine') return 'reimu.shrine';
-        if (clean === 'register') return 'Reclamar Dominio';
+        if (clean === 'register' || clean.startsWith('register') || clean === 'claim' || clean.startsWith('claim')) return 'Reclamar Dominio';
         if (clean === 'builder') return 'Creador Web';
         if (clean.includes('localhost') || clean.includes('127.0.0.1')) return `Localhost (${clean})`;
         return clean;
@@ -144,7 +155,8 @@ Object.assign(GensokyoApp, {
         const isLocalhost = this.isLocalhostDomain(rawVal);
         const isExternal = !isLocalhost && this.isExternalDomain(rawVal);
 
-        if (!isLocalhost && !isExternal && !rawVal.includes('.') && !['search', 'register', 'builder', 'home', ''].includes(rawVal)) {
+        const routeRoot = rawVal.split('?')[0].toLowerCase();
+        if (!isLocalhost && !isExternal && !rawVal.includes('.') && !['search', 'register', 'claim', 'builder', 'home', ''].includes(routeRoot)) {
             this.navigate(`gensokyo://search?q=${encodeURIComponent(rawVal)}`);
             return;
         }
@@ -174,7 +186,7 @@ Object.assign(GensokyoApp, {
         if (!pathStr || typeof pathStr !== 'string') return false;
         const clean = pathStr.replace(/^(gensokyo|outside):\/\//i, '').trim().toLowerCase();
         if (this.isLocalhostDomain(clean)) return false;
-        if (clean === 'home' || clean === '' || clean === 'register' || clean === 'builder' || clean.startsWith('search')) return false;
+        if (clean === 'home' || clean === '' || clean === 'register' || clean.startsWith('register') || clean === 'claim' || clean.startsWith('claim') || clean === 'builder' || clean.startsWith('search')) return false;
 
         const hasExternalTld = /\.(com|org|net|io|app|ai|edu|co|es|ar|tv|me|dev|xyz|info|us|uk)$/i.test(clean.split('/')[0].split('?')[0]);
         const isHttp = pathStr.toLowerCase().startsWith('http://') || pathStr.toLowerCase().startsWith('https://') || pathStr.toLowerCase().startsWith('outside://');
@@ -371,7 +383,6 @@ Object.assign(GensokyoApp, {
         document.querySelectorAll('.gx-side-btn').forEach((btn) => btn.classList.remove('active'));
 
         if (clean === 'home' || clean === '') document.getElementById('nav-home')?.classList.add('active');
-        else if (clean === 'bunbunmaru.news') document.getElementById('nav-news')?.classList.add('active');
         else if (clean === 'register') document.getElementById('nav-register')?.classList.add('active');
         else if (clean === 'builder') document.getElementById('nav-builder')?.classList.add('active');
     },
@@ -558,17 +569,14 @@ Object.assign(GensokyoApp, {
 
         let path = fullUrl.replace('gensokyo://', '').trim().toLowerCase();
 
-        // CONTROL DE VISIBILIDAD DE BARRA DE ESTADO INFERIOR (Solo visible en Home)
-        const statusbarEl = document.querySelector('.gx-statusbar');
-        if (statusbarEl) {
-            if (path === '' || path === 'home') {
-                statusbarEl.classList.remove('hidden');
-            } else {
-                statusbarEl.classList.add('hidden');
-            }
+        if (typeof this.recordNavigationHistory === 'function') {
+            const activeTab = this.getActiveTab ? this.getActiveTab() : null;
+            this.recordNavigationHistory(fullUrl, activeTab ? activeTab.title : null);
         }
+        if (typeof this.saveTabsSession === 'function') this.saveTabsSession();
 
-        const isFullWidthRoute = this.isLocalhostDomain(path) || path === 'builder' || (path.includes('.') && !path.startsWith('search'));
+        const isInternalCentered = path === '' || path === 'home' || path === 'register' || path.startsWith('register') || path === 'claim' || path.startsWith('claim') || path === 'history' || path === 'webring' || path === 'directory' || path.startsWith('search');
+        const isFullWidthRoute = !isInternalCentered;
 
         if (isFullWidthRoute) {
             viewport.classList.add('full-width');
@@ -576,6 +584,22 @@ Object.assign(GensokyoApp, {
         } else {
             viewport.classList.remove('full-width');
             if (wrapperEl) wrapperEl.classList.remove('full-bleed');
+        }
+
+        // 1. Si el usuario escribe un puerto local (ej: "localhost:5173" o "gensokyo://localhost:3000"):
+        if (this.isLocalhostDomain && (this.isLocalhostDomain(fullUrl) || this.isLocalhostDomain(path))) {
+            this.renderLocalDevPort(fullUrl);
+            return;
+        }
+
+        if (path === 'history') {
+            this.renderHistoryView();
+            return;
+        }
+
+        if (path === 'webring' || path === 'directory') {
+            this.renderWebringFullView();
+            return;
         }
 
         if (path.startsWith('search')) {
@@ -592,8 +616,9 @@ Object.assign(GensokyoApp, {
             return;
         }
 
-        if (path === 'register') {
-            viewport.innerHTML = this.getRegisterView();
+        const cleanPath = path.split('?')[0].trim();
+        if (cleanPath === 'register' || cleanPath === 'claim') {
+            this.renderRegisterView(path);
             return;
         }
 
@@ -603,55 +628,6 @@ Object.assign(GensokyoApp, {
             } else {
                 viewport.innerHTML = this.getBuilderView();
             }
-            return;
-        }
-
-        // SOPORTE PARA ENTORNO DE DESARROLLO LOCAL (LOCALHOST & 127.0.0.1 BORDE A BORDE NATIVO CON SANDBOX)
-        if (this.isLocalhostDomain(path)) {
-            let targetUrl = path;
-            if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-                targetUrl = `http://${targetUrl}`;
-            }
-
-            viewport.innerHTML = `
-                <div class="th-card" style="max-width: 600px; margin: 40px auto; text-align: center; width: 100%;">
-                    <h2 class="th-card-title" style="color: var(--th-crimson); margin-bottom: 12px;">Comprobando Servidor Local...</h2>
-                    <p style="font-size:0.9rem; color:var(--th-text-sub);">Conectando con <code>${this.escapeHtml(targetUrl)}</code></p>
-                </div>
-            `;
-
-            this.checkLocalhostStatus(targetUrl).then((isOnline) => {
-                if (isOnline) {
-                    const localhostSandbox = this.getLocalhostSandboxAttr ? this.getLocalhostSandboxAttr() : 'allow-scripts allow-forms';
-                    viewport.innerHTML = `
-                        <iframe class="user-site-iframe" sandbox="${localhostSandbox}" src="${this.escapeHtml(targetUrl)}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
-                    `;
-                } else {
-                    viewport.classList.remove('full-width');
-                    if (wrapperEl) wrapperEl.classList.remove('full-bleed');
-
-                    viewport.innerHTML = `
-                        <div class="th-card" style="max-width: 650px; margin: 40px auto; text-align: center;">
-                            <div style="width: 70px; height: 70px; background: var(--th-crimson-light); color: var(--th-crimson); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
-                                <svg class="th-svg-icon" style="width:36px; height:36px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-                            </div>
-                            <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.5rem; margin-bottom: 10px;">Servidor Local Inaccesible</h1>
-                            <div style="background:var(--th-bg-main); border:1px solid var(--th-border-warm); padding:8px 14px; border-radius:8px; display:inline-block; font-family:monospace; color:var(--th-crimson); font-weight:bold; margin-bottom:14px;">
-                                ${this.escapeHtml(targetUrl)}
-                            </div>
-                            <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px; color: var(--th-text-sub);">
-                                No se pudo establecer conexión con el puerto local especificado.<br>
-                                Asegúrate de tener encendido tu servidor de desarrollo en la terminal<br>
-                                (ej: <code>npm run dev</code>, <code>python -m http.server 8080</code>, etc.).
-                            </p>
-                            <div style="display: flex; gap: 12px; justify-content: center;">
-                                <button class="gx-btn-go" onclick="GensokyoApp.reloadPage()">Reintentar Conexión</button>
-                                <button class="gx-btn-go" style="background: var(--th-bg-main); border: 1px solid var(--th-border-warm); color: var(--th-text-main);" onclick="GensokyoApp.navigate('gensokyo://home')">Volver al Inicio</button>
-                            </div>
-                        </div>
-                    `;
-                }
-            });
             return;
         }
 
@@ -807,11 +783,8 @@ Object.assign(GensokyoApp, {
                     return;
                 }
 
-                const escapedContent = this.escapeHtml(routeInfo.htmlContent);
-
-                viewport.innerHTML = `
-                    <iframe class="user-site-iframe" sandbox="allow-scripts allow-forms allow-modals" srcdoc="${escapedContent}" style="width:100%; height:100%; border:none; background:#ffffff; display:block;"></iframe>
-                `;
+                // 2. Cuando resuelve un dominio de usuario (local o remoto desde espinoza.engineer):
+                this.renderIntranetSiteFrame(routeInfo);
                 return;
             }
         }
@@ -821,7 +794,7 @@ Object.assign(GensokyoApp, {
                 <h2 class="th-card-title">Dominio No Registrado</h2>
                 <div class="gx-address-bar" style="max-width: 400px; margin: 15px auto; justify-content: center;">gensokyo://${this.escapeHtml(path)}</div>
                 <p style="margin-bottom: 20px;">Esta dirección aún no existe en la red <strong>GensokyoNet</strong>.</p>
-                <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://register')">
+                <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://register?domain=${encodeURIComponent(path)}')">
                     Reclamar este dominio gratis
                 </button>
             </div>
@@ -832,7 +805,7 @@ Object.assign(GensokyoApp, {
         return `
             <div class="gx-speed-dial-container">
                 <div class="yomoyama-banner-card">
-                    <div class="yomoyama-banner-inner" style="background-image: url('assets/gensokyo_banner.png');">
+                    <div class="yomoyama-banner-inner" style="background-image: url('assets/gensokyo_banner.png?v=${Date.now()}');">
                         <div class="banner-overlay-gradient"></div>
                         <div class="banner-title-group">
                             <h1 class="yomoyama-main-title">東方 GensokyoNet</h1>
@@ -843,26 +816,26 @@ Object.assign(GensokyoApp, {
 
                 <div class="gx-search-box-wrap">
                     <div class="gx-search-box">
-                        <input type="text" id="gx-home-search" class="gx-search-input" placeholder="Buscar en la red (ej: noticias, templo, marisa, bad apple, localhost:3000)..." onkeypress="if(event.key==='Enter'){ GensokyoApp.submitHomeSearch(); }">
+                        <input type="text" id="gx-home-search" class="gx-search-input" placeholder="Buscar en la red..." onkeypress="if(event.key==='Enter'){ GensokyoApp.submitHomeSearch(); }">
                         <button class="gx-search-btn" onclick="GensokyoApp.submitHomeSearch()">Buscar</button>
                     </div>
                 </div>
 
                 <div class="gx-speed-dial-grid">
-                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://bunbunmaru.news')">
+                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://register')">
                         <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
-                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>
                         </div>
-                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">BUNBUNMARU</h3>
-                        <p style="font-size:0.8rem; color:var(--th-text-sub);">Diario de Aya Shameimaru</p>
+                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">RECLAMAR DOMINIO</h3>
+                        <p style="font-size:0.8rem; color:var(--th-text-sub);">Crea tu propio rincón</p>
                     </div>
 
-                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://reimu.shrine')">
+                    <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://history')">
                         <div style="background:var(--th-crimson-light); color:var(--th-crimson); width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
-                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
                         </div>
-                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">REIMU.SHRINE</h3>
-                        <p style="font-size:0.8rem; color:var(--th-text-sub);">Templo Hakurei</p>
+                        <h3 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--th-crimson); margin-bottom:4px;">HISTORIAL</h3>
+                        <p style="font-size:0.8rem; color:var(--th-text-sub);">Registro de Navegación</p>
                     </div>
 
                     <div class="gx-dial-card" onclick="GensokyoApp.navigate('gensokyo://builder')">
@@ -883,6 +856,391 @@ Object.assign(GensokyoApp, {
                 </div>
             </div>
         `;
+    },
+
+    renderWebringBadgesHTML() {
+        const seedKeys = Object.keys(GensokyoSeedData && GensokyoSeedData.domains ? GensokyoSeedData.domains : {});
+        const userKeys = Object.keys(this.userDomains || {});
+        const remoteList = Array.isArray(this._remoteDirectoryCache) ? this._remoteDirectoryCache : [];
+
+        const badgeMap = new Map();
+
+        seedKeys.forEach((key) => {
+            const d = GensokyoSeedData.domains[key];
+            badgeMap.set(key, {
+                domain: key,
+                title: d.title || key,
+                badgeUrl: d.badgeUrl || null,
+                badgeText: d.badgeText || key.toUpperCase()
+            });
+        });
+
+        userKeys.forEach((key) => {
+            const d = this.userDomains[key];
+            if (d && d.visibility !== 'private') {
+                badgeMap.set(key, {
+                    domain: key,
+                    title: d.title || key,
+                    badgeUrl: d.badgeUrl || null,
+                    badgeText: d.badgeText || key.toUpperCase()
+                });
+            }
+        });
+
+        remoteList.forEach((r) => {
+            if (r && r.domain && !badgeMap.has(r.domain)) {
+                badgeMap.set(r.domain, {
+                    domain: r.domain,
+                    title: r.title || r.domain,
+                    badgeUrl: r.badgeUrl || null,
+                    badgeText: r.badgeText || r.domain.toUpperCase()
+                });
+            }
+        });
+
+        if (!this._remoteDirectoryCache && typeof this.fetchRemoteDirectory === 'function') {
+            this.fetchRemoteDirectory().then(() => {
+                const el = document.getElementById('gx-webring-badges-container');
+                if (el) el.innerHTML = this.renderWebringBadgesHTML();
+            });
+        }
+
+        const badges = Array.from(badgeMap.values());
+        if (badges.length === 0) {
+            return '<div style="font-size:0.82rem; color:var(--th-text-sub); padding:10px;">No hay botones webring registrados aun.</div>';
+        }
+
+        return badges.map((b) => {
+            if (b.badgeUrl) {
+                return `
+                    <div class="gx-badge-88x31" onclick="GensokyoApp.navigate('gensokyo://${this.escapeHtml(b.domain)}')" title="${this.escapeHtml(b.title)} (${this.escapeHtml(b.domain)})">
+                        <img src="${this.escapeHtml(b.badgeUrl)}" alt="${this.escapeHtml(b.title)}">
+                    </div>
+                `;
+            }
+            return `
+                <div class="gx-badge-88x31" onclick="GensokyoApp.navigate('gensokyo://${this.escapeHtml(b.domain)}')" title="${this.escapeHtml(b.title)} (gensokyo://${this.escapeHtml(b.domain)})">
+                    <span>${this.escapeHtml(b.badgeText || b.domain.slice(0, 11))}</span>
+                </div>
+            `;
+        }).join('');
+    },
+
+    renderWebringFullView() {
+        const viewport = document.getElementById('th-viewport');
+        if (!viewport) return;
+
+        this.fetchRemoteDirectory && this.fetchRemoteDirectory().then(() => {
+            const container = document.getElementById('gx-full-webring-container');
+            if (container) container.innerHTML = this.renderWebringBadgesHTML();
+        });
+
+        viewport.innerHTML = `
+            <div class="th-card" style="max-width: 880px; margin: 24px auto; padding: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--th-border-warm); padding-bottom: 14px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h1 class="th-card-title" style="margin: 0; font-size: 1.5rem; color: var(--th-crimson);">Directorio de la Red y Webrings</h1>
+                        <span style="font-size: 0.85rem; color: var(--th-text-sub); font-weight: 600;">Banners 88x31 px de la comunidad GensokyoNet</span>
+                    </div>
+                    <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver al Inicio</button>
+                </div>
+
+                <p style="font-size: 0.95rem; color: var(--th-text-main); line-height: 1.6; margin-bottom: 20px;">
+                    Explora los sitios registrados en la intranet o haz clic en cualquier insignia para visitarlo directamente.
+                </p>
+
+                <div class="gx-webring-grid" id="gx-full-webring-container" style="gap: 14px; padding: 10px; background: var(--th-bg-main); border: 1.5px solid var(--th-border-warm); border-radius: 8px;">
+                    ${this.renderWebringBadgesHTML()}
+                </div>
+            </div>
+        `;
+    },
+
+    renderRegisterView(rawPath = 'register') {
+        const viewport = document.getElementById('th-viewport');
+        if (!viewport) return;
+
+        let prefilledDomain = '';
+        if (rawPath && rawPath.includes('?')) {
+            try {
+                const params = new URLSearchParams(rawPath.slice(rawPath.indexOf('?') + 1));
+                prefilledDomain = (params.get('domain') || params.get('q') || '').trim();
+            } catch (e) {}
+        }
+
+        const isRegistered = this.passport && this.passport.isRegistered;
+
+        if (!isRegistered) {
+            viewport.innerHTML = `
+                <div class="th-card" style="max-width: 480px; margin: 30px auto; padding: 28px;">
+                    <div style="text-align: center; margin-bottom: 22px;">
+                        <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--th-crimson-light); color: var(--th-crimson); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+                            <svg class="th-svg-icon" style="width:26px;height:26px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+                        </div>
+                        <h1 class="th-card-title" style="margin: 0; font-size: 1.35rem; color: var(--th-crimson);">Registro de Cuenta GensokyoNet</h1>
+                        <p style="font-size: 0.85rem; color: var(--th-text-sub); margin-top: 6px;">
+                            ${prefilledDomain ? `Para reclamar <strong>gensokyo://${this.escapeHtml(prefilledDomain)}</strong> necesitas registrar tu pasaporte.` : 'Crea una cuenta para registrar y proteger dominios en la red.'}
+                        </p>
+                    </div>
+
+                    ${prefilledDomain ? `
+                    <div style="background: rgba(166,27,50,0.08); border: 1.5px solid var(--th-crimson); border-radius: 8px; padding: 10px 14px; margin-bottom: 18px; display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 0.75rem; font-weight: 800; color: var(--th-crimson); letter-spacing: 0.5px;">DOMINIO A RECLAMAR:</span>
+                        <span style="font-family: var(--font-heading); font-weight: 700; color: var(--th-crimson);">gensokyo://${this.escapeHtml(prefilledDomain)}</span>
+                    </div>
+                    ` : ''}
+
+                    <div id="gx-reg-page-error" class="th-form-error-banner"></div>
+
+                    <form id="gx-page-register-form" onsubmit="event.preventDefault(); GensokyoApp.submitPageRegister();">
+                        <input type="hidden" id="gx-reg-page-domain" value="${this.escapeHtml(prefilledDomain)}">
+
+                        <div class="th-form-group">
+                            <label class="th-form-label" for="gx-reg-page-username">Nombre de Usuario</label>
+                            <input type="text" id="gx-reg-page-username" class="th-form-input" required autocomplete="username">
+                        </div>
+
+                        <div class="th-form-group">
+                            <label class="th-form-label" for="gx-reg-page-password">Contraseña</label>
+                            <div class="th-input-password-wrapper">
+                                <input type="password" id="gx-reg-page-password" class="th-form-input" required minlength="8" autocomplete="new-password">
+                                <button type="button" class="yukari-eye-btn" onclick="GensokyoApp.togglePasswordVisibility('gx-reg-page-password', this)" title="Ver/Ocultar Contraseña">
+                                    <svg class="yukari-eye-svg closed" viewBox="0 0 24 24">
+                                        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 10a12.5 12.5 0 0 0 18 0M6.5 12.5L5 15.5M12 13.5v3.5M17.5 12.5l1.5 3"/>
+                                    </svg>
+                                    <svg class="yukari-eye-svg open hidden" viewBox="0 0 24 24">
+                                        <path fill="#ffffff" stroke="var(--th-crimson)" stroke-width="1.8" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+                                        <circle cx="12" cy="12" r="4.5" fill="#a61b32"/>
+                                        <circle cx="12" cy="12" r="2" fill="#500010"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="th-form-group">
+                            <label class="th-form-label" for="gx-reg-page-confirm-password">Confirmar Contraseña</label>
+                            <div class="th-input-password-wrapper">
+                                <input type="password" id="gx-reg-page-confirm-password" class="th-form-input" required minlength="8" autocomplete="new-password">
+                                <button type="button" class="yukari-eye-btn" onclick="GensokyoApp.togglePasswordVisibility('gx-reg-page-confirm-password', this)" title="Ver/Ocultar Contraseña">
+                                    <svg class="yukari-eye-svg closed" viewBox="0 0 24 24">
+                                        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 10a12.5 12.5 0 0 0 18 0M6.5 12.5L5 15.5M12 13.5v3.5M17.5 12.5l1.5 3"/>
+                                    </svg>
+                                    <svg class="yukari-eye-svg open hidden" viewBox="0 0 24 24">
+                                        <path fill="#ffffff" stroke="var(--th-crimson)" stroke-width="1.8" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+                                        <circle cx="12" cy="12" r="4.5" fill="#a61b32"/>
+                                        <circle cx="12" cy="12" r="2" fill="#500010"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="gx-btn-go" style="width: 100%; padding: 12px; font-size: 0.95rem; font-weight: 700; border-radius: 8px; margin-top: 8px;">
+                            ${prefilledDomain ? 'Crear Cuenta y Reclamar Dominio' : 'Crear Cuenta'}
+                        </button>
+
+                        <div style="text-align: center; margin-top: 18px; font-size: 0.85rem; color: var(--th-text-sub);">
+                            ¿Ya tienes una cuenta? <a href="#" onclick="event.preventDefault(); GensokyoApp.showLoginModal();" style="color: var(--th-crimson); font-weight: 700; text-decoration: underline;">Inicia Sesión</a>
+                        </div>
+                    </form>
+                </div>
+            `;
+            const userInput = document.getElementById('gx-reg-page-username');
+            if (userInput) setTimeout(() => userInput.focus(), 60);
+        } else {
+            viewport.innerHTML = `
+                <div class="th-card" style="max-width: 500px; margin: 30px auto; padding: 28px;">
+                    <div style="text-align: center; margin-bottom: 22px;">
+                        <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--th-crimson-light); color: var(--th-crimson); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+                            <svg class="th-svg-icon" style="width:26px;height:26px;" viewBox="0 0 24 24"><path fill="currentColor" d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>
+                        </div>
+                        <h1 class="th-card-title" style="margin: 0; font-size: 1.35rem; color: var(--th-crimson);">Reclamar Dominio Doujin</h1>
+                        <p style="font-size: 0.85rem; color: var(--th-text-sub); margin-top: 6px;">
+                            Autenticado como <strong>${this.escapeHtml(this.passport.username)}</strong> (${this.escapeHtml(this.passport.userId)}).
+                        </p>
+                    </div>
+
+                    <div id="gx-claim-domain-error" class="th-form-error-banner"></div>
+
+                    <form id="gx-claim-domain-form" onsubmit="event.preventDefault(); GensokyoApp.submitClaimDomain();">
+                        <div class="th-form-group">
+                            <label class="th-form-label" for="gx-claim-input-domain">Nombre de Dominio</label>
+                            <div style="display: flex; align-items: center; background: var(--th-bg-main); border: 1.5px solid var(--th-border-warm); border-radius: 8px; padding: 2px 14px;">
+                                <span style="font-family: var(--font-heading); font-weight: 700; color: var(--th-crimson); font-size: 0.95rem; margin-right: 6px;">gensokyo://</span>
+                                <input type="text" id="gx-claim-input-domain" class="th-form-input" value="${this.escapeHtml(prefilledDomain)}" style="border:none; padding:8px 0; background:transparent; box-shadow:none;" required pattern="[a-zA-Z0-9.-]+" title="Solo letras, números, puntos y guiones">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="gx-btn-go" style="width: 100%; padding: 12px; font-size: 0.95rem; font-weight: 700; border-radius: 8px; margin-top: 14px;">
+                            Reclamar y Abrir en Studio
+                        </button>
+                    </form>
+                </div>
+            `;
+            const domainInput = document.getElementById('gx-claim-input-domain');
+            if (domainInput) setTimeout(() => domainInput.focus(), 60);
+        }
+    },
+
+    getRegisterView() {
+        return this.renderRegisterView('register');
+    },
+
+    async submitPageRegister() {
+        const userIn = document.getElementById('gx-reg-page-username');
+        const passIn = document.getElementById('gx-reg-page-password');
+        const confirmIn = document.getElementById('gx-reg-page-confirm-password');
+        const domIn = document.getElementById('gx-reg-page-domain');
+        const errBox = document.getElementById('gx-reg-page-error');
+
+        const username = (userIn ? userIn.value : '').trim();
+        const password = passIn ? passIn.value : '';
+        const confirmPassword = confirmIn ? confirmIn.value : '';
+        const domainToClaim = (domIn ? domIn.value : '').trim();
+
+        const res = await this.submitRegisterFromNative({ username, password, confirmPassword });
+        if (!res.ok) {
+            if (errBox) {
+                errBox.textContent = res.message;
+                errBox.style.display = 'block';
+            }
+            return;
+        }
+
+        if (domainToClaim) {
+            this.claimDomainForCurrentUser(domainToClaim);
+        } else {
+            this.renderRegisterView('register');
+        }
+    },
+
+    submitClaimDomain() {
+        const domIn = document.getElementById('gx-claim-input-domain');
+        const errBox = document.getElementById('gx-claim-domain-error');
+        const rawDom = (domIn ? domIn.value : '').trim().toLowerCase().replace(/^gensokyo:\/\//i, '');
+
+        const clean = rawDom.replace(/[^a-z0-9.-]/g, '');
+        if (!clean) {
+            if (errBox) {
+                errBox.textContent = 'Por favor ingresa un nombre de dominio válido.';
+                errBox.style.display = 'block';
+            }
+            return;
+        }
+
+        const res = this.claimDomainForCurrentUser(clean);
+        if (!res.ok && errBox) {
+            errBox.textContent = res.message;
+            errBox.style.display = 'block';
+        }
+    },
+
+    claimDomainForCurrentUser(domainName) {
+        const clean = String(domainName || '').trim().toLowerCase().replace(/^gensokyo:\/\//i, '').replace(/[^a-z0-9.-]/g, '');
+        if (!clean) return { ok: false, message: 'Nombre de dominio no válido.' };
+
+        const existing = this.userDomains[clean];
+        const myId = this.passport ? this.passport.userId : 'ID#0000';
+        if (existing && existing.ownerId && existing.ownerId !== myId) {
+            return { ok: false, message: `El dominio "gensokyo://${clean}" ya fue reclamado por otro creador.` };
+        }
+
+        if (!existing) {
+            const vfs = (typeof GensokyoVFS !== 'undefined' && GensokyoVFS.createDefaultTree)
+                ? GensokyoVFS.createDefaultTree()
+                : { files: { 'index.html': `<!DOCTYPE html><html><body><h1>gensokyo://${clean}</h1></body></html>` }, folders: [] };
+
+            this.userDomains[clean] = {
+                title: clean,
+                author: this.passport?.username || 'Nameless Youkai',
+                ownerId: myId,
+                visibility: 'public',
+                activeVersion: 'v1',
+                versions: {
+                    'v1': {
+                        htmlContent: vfs.files['index.html'] || '',
+                        vfs: vfs,
+                        updatedAt: new Date().toISOString()
+                    }
+                },
+                vfs: vfs,
+                htmlContent: vfs.files['index.html'] || ''
+            };
+            this.saveUserDomains();
+        }
+
+        if (this.passport && Array.isArray(this.passport.ownedDomains) && !this.passport.ownedDomains.includes(clean)) {
+            this.passport.ownedDomains.push(clean);
+            this.savePassportData();
+            this.updatePassportUI();
+        }
+
+        if (this.showToastNotification) {
+            this.showToastNotification(`¡Dominio gensokyo://${clean} reclamado con éxito!`, 'success');
+        }
+
+        this.builderSelectedDomain = clean;
+        this.navigate('gensokyo://builder');
+        return { ok: true, domain: clean };
+    },
+
+    renderHistoryView() {
+        const viewport = document.getElementById('th-viewport');
+        if (!viewport) return;
+
+        const history = this.navigationHistory || [];
+        const formatTime = (ts) => {
+            const d = new Date(ts);
+            return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        };
+
+        viewport.innerHTML = `
+            <div class="th-card" style="max-width: 800px; margin: 24px auto; padding: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--th-border-warm); padding-bottom: 14px; margin-bottom: 18px; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h1 class="th-card-title" style="margin: 0; font-size: 1.5rem; color: var(--th-crimson);">Historial de Navegacion</h1>
+                        <span style="font-size: 0.85rem; color: var(--th-text-sub); font-weight: 600;">${history.length} paginas registradas (Atajo: Ctrl+H)</span>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="gx-btn-go" style="background: var(--th-bg-main); color: var(--th-crimson); border: 1.5px solid var(--th-crimson);" onclick="GensokyoApp.clearNavigationHistory()">Borrar Historial</button>
+                        <button class="gx-btn-go" onclick="GensokyoApp.navigate('gensokyo://home')">Volver al Inicio</button>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <input type="text" id="gx-history-filter" class="gx-search-input" placeholder="Filtrar historial..." style="width: 100%; border-radius: 6px; padding: 10px 14px;" oninput="GensokyoApp.filterHistoryView(this.value)">
+                </div>
+
+                <div id="gx-history-list" style="display: flex; flex-direction: column; gap: 8px;">
+                    ${history.length === 0 ? `
+                        <div style="text-align: center; padding: 30px; color: var(--th-text-sub);">
+                            No hay paginas en el historial.
+                        </div>
+                    ` : history.map((item, index) => `
+                        <div class="gx-history-item" data-index="${index}" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--th-bg-main); border: 1px solid var(--th-border-warm); border-radius: 8px; transition: background 0.2s;">
+                            <div style="display: flex; flex-direction: column; gap: 2px; cursor: pointer; flex: 1; overflow: hidden;" onclick="GensokyoApp.navigate('${this.escapeHtml(item.url)}')">
+                                <span style="font-weight: 700; color: var(--th-text-main); font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(item.title || item.url)}</span>
+                                <span style="font-size: 0.8rem; color: var(--th-crimson);">${this.escapeHtml(item.url)}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px; margin-left: 12px;">
+                                <span style="font-size: 0.78rem; color: var(--th-text-sub); white-space: nowrap;">${formatTime(item.timestamp)}</span>
+                                <button onclick="GensokyoApp.deleteNavigationHistoryItem(${index})" style="background: none; border: none; cursor: pointer; color: var(--th-text-sub); padding: 4px;" title="Eliminar entrada">
+                                    <svg class="th-svg-icon" style="width: 16px; height: 16px;" viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    },
+
+    filterHistoryView(query) {
+        const q = String(query || '').toLowerCase().trim();
+        const items = document.querySelectorAll('#gx-history-list .gx-history-item');
+        items.forEach(el => {
+            const text = el.textContent.toLowerCase();
+            el.style.display = (!q || text.includes(q)) ? 'flex' : 'none';
+        });
     },
 
     renderHakureiBarrier(externalDomain) {
@@ -932,3 +1290,202 @@ Object.assign(GensokyoApp, {
         `;
     }
 });
+
+/**
+ * ==========================================================================
+ * js/app.navigation.js (Parche de Motor de Intranet + Puente de Puertos Locales)
+ * - Permite navegar a cualquier puerto local de VS Code / Vite / LiveServer / Node / Python:
+ *   Ej: escribir `localhost:5173`, `gensokyo://localhost:3000` o `dev.local:8080`
+ * - Renderiza sitios de la intranet (`gensokyo://dominio`) con aislamiento seguro,
+ *   soporte de subpáginas, historial por pestaña y sincronización con WebView2 C#.
+ * ==========================================================================
+ */
+(function () {
+    if (!window.GensokyoApp) return;
+
+    Object.assign(GensokyoApp, {
+        parseLocalDevServerTarget(rawUrl) {
+            const cleaned = String(rawUrl || '').trim();
+            const match = cleaned.match(/^(?:(?:gensokyo|outside|https?):\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0)(?::(\d{1,5}))?(\/.*)?$/i);
+            if (!match) return null;
+
+            const host = match[1].toLowerCase() === '0.0.0.0' ? '127.0.0.1' : match[1].toLowerCase();
+            const port = match[2] ? parseInt(match[2], 10) : 3000;
+            if (port < 1 || port > 65535) return null;
+
+            const path = match[3] || '/';
+            return {
+                host,
+                port,
+                path,
+                httpUrl: `http://${host}:${port}${path}`,
+                displayUrl: `gensokyo://${host}:${port}${path}`
+            };
+        },
+
+        isLocalhostDomain(rawUrl) {
+            return !!this.parseLocalDevServerTarget(rawUrl);
+        },
+
+        postToNativeShell(payload) {
+            try {
+                if (window.chrome && window.chrome.webview && typeof window.chrome.webview.postMessage === 'function') {
+                    window.chrome.webview.postMessage(payload);
+                    return true;
+                }
+            } catch (e) {
+                console.warn('Error enviando mensaje al bridge WebView2', e);
+            }
+            return false;
+        },
+
+        syncNativeViewportBounds() {
+            const viewport = document.getElementById('th-viewport');
+            if (!viewport) return;
+            const rect = viewport.getBoundingClientRect();
+            this.postToNativeShell({
+                action: 'viewportRectChanged',
+                rect: {
+                    x: rect.left,
+                    y: rect.top,
+                    width: rect.width,
+                    height: rect.height
+                }
+            });
+        },
+
+        renderLocalDevPort(rawUrl) {
+            const target = this.parseLocalDevServerTarget(rawUrl);
+            const viewport = document.getElementById('th-viewport');
+            if (!target || !viewport) return;
+
+            const urlInput = document.getElementById('th-url-input');
+            if (urlInput) urlInput.value = `${target.host}:${target.port}${target.path}`;
+
+            const statusEl = document.getElementById('th-status-text');
+            if (statusEl) {
+                statusEl.textContent = `Modo Dev Local Activo — Escuchando ${target.httpUrl}`;
+            }
+
+            if (window.chrome && window.chrome.webview) {
+                viewport.innerHTML = '';
+                this.syncNativeViewportBounds();
+                this.postToNativeShell({
+                    action: 'crossHakureiBarrier',
+                    url: target.httpUrl
+                });
+                return;
+            }
+
+            const localhostSandbox = this.getLocalhostSandboxAttr ? this.getLocalhostSandboxAttr() : 'allow-scripts allow-forms';
+            viewport.innerHTML = `
+                <div style="display:flex; flex-direction:column; width:100%; height:100%; flex:1; border:none; border-radius:0; overflow:hidden; background:var(--th-bg-card);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 12px; background:var(--th-bg-card); border-bottom:1px solid var(--th-border-warm); font-size:0.78rem;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="background:var(--th-crimson); color:#fff; padding:2px 8px; border-radius:10px; font-weight:700; font-size:0.7rem;">DEV PORT :${target.port}</span>
+                            <code style="color:var(--th-text-main);">${this.escapeHtml(target.httpUrl)}</code>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" id="gx-devport-reload" class="gx-btn" style="padding:3px 10px; font-size:0.75rem;">Refrescar Puerto</button>
+                            <button type="button" id="gx-devport-sandbox" class="gx-btn" style="padding:3px 10px; font-size:0.75rem;">
+                                Sandbox: ${this.securityConfig && this.securityConfig.localhostSandboxMode === 'dev' ? 'Dev (Same-Origin)' : 'Aislado'}
+                            </button>
+                        </div>
+                    </div>
+                    <iframe id="gx-devport-frame"
+                        class="user-site-iframe"
+                        src="${this.escapeHtml(target.httpUrl)}"
+                        sandbox="${localhostSandbox} allow-modals allow-popups allow-downloads"
+                        allow="autoplay; fullscreen; clipboard-read; clipboard-write; gamepad; web-share"
+                        style="flex:1; width:100%; height:100%; border:none; background:#ffffff;">
+                    </iframe>
+                </div>
+            `;
+
+            document.getElementById('gx-devport-reload')?.addEventListener('click', () => {
+                const frame = document.getElementById('gx-devport-frame');
+                if (frame) frame.src = target.httpUrl;
+            });
+
+            document.getElementById('gx-devport-sandbox')?.addEventListener('click', () => {
+                const next = (this.securityConfig && this.securityConfig.localhostSandboxMode === 'secure') ? 'dev' : 'secure';
+                this.setLocalhostSandboxMode(next);
+                this.renderLocalDevPort(rawUrl);
+            });
+        },
+
+        renderIntranetSiteFrame(routeInfo) {
+            const viewport = document.getElementById('th-viewport');
+            if (!viewport || !routeInfo) return;
+
+            this.postToNativeShell({ action: 'returnToIntranet' });
+
+            let finalHtml = routeInfo.htmlContent || '';
+            const localDomain = this.userDomains && this.userDomains[routeInfo.domain];
+            if (localDomain && (localDomain.vfs || localDomain.files) && window.GensokyoBundler) {
+                finalHtml = GensokyoBundler.bundle(localDomain.vfs || { files: localDomain.files }, routeInfo.subpage || null).html;
+            }
+
+            if (this._activeIntranetBlobUrl) {
+                URL.revokeObjectURL(this._activeIntranetBlobUrl);
+            }
+
+            const blob = new Blob([finalHtml], { type: 'text/html;charset=utf-8' });
+            this._activeIntranetBlobUrl = URL.createObjectURL(blob);
+
+            viewport.innerHTML = `
+                <div style="width:100%; height:100%; flex:1; display:flex; flex-direction:column; border:none; border-radius:0; overflow:hidden; background:#ffffff;">
+                    <iframe id="gx-intranet-site-iframe"
+                        class="user-site-iframe"
+                        src="${this._activeIntranetBlobUrl}"
+                        sandbox="allow-scripts allow-forms allow-modals allow-popups"
+                        allow="autoplay; fullscreen; gamepad"
+                        style="width:100%; height:100%; border:none; display:block; flex:1;">
+                    </iframe>
+                </div>
+            `;
+        }
+    });
+
+    window.addEventListener('message', (event) => {
+        const data = event.data;
+        if (!data || typeof data !== 'object') return;
+
+        if (data.source === 'gensokyo-intranet-nav' && typeof data.url === 'string') {
+            GensokyoApp.navigate(data.url);
+        } else if (data.source === 'gensokyo-intranet-subpage' && typeof data.page === 'string') {
+            const activeTab = GensokyoApp.getActiveTab ? GensokyoApp.getActiveTab() : null;
+            if (!activeTab) return;
+            const domainKey = String(activeTab.url || '').replace(/^gensokyo:\/\//i, '').split('/')[0];
+            const domainObj = GensokyoApp.userDomains[domainKey];
+            if (domainObj) {
+                GensokyoApp.renderIntranetSiteFrame({
+                    domain: domainKey,
+                    title: domainObj.title || domainKey,
+                    htmlContent: domainObj.htmlContent,
+                    subpage: data.page
+                });
+            }
+        } else if (data.type === 'GENSOKYO_GET_PASSPORT_PROFILE' || (data.source === 'gensokyo-passport-sdk' && data.action === 'getProfile')) {
+            const iframe = document.getElementById('gx-intranet-site-iframe');
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: 'GENSOKYO_PASSPORT_PROFILE_RESPONSE',
+                    requestId: data.requestId,
+                    profile: {
+                        username: GensokyoApp.passport ? (GensokyoApp.passport.username || 'Nameless Youkai') : 'Nameless Youkai',
+                        userId: GensokyoApp.passport ? (GensokyoApp.passport.userId || 'ID#0000') : 'ID#0000',
+                        avatarUrl: GensokyoApp.passport ? (GensokyoApp.passport.avatarUrl || 'assets/nameless_avatar.png') : 'assets/nameless_avatar.png',
+                        isRegistered: GensokyoApp.passport ? !!GensokyoApp.passport.isRegistered : false,
+                        currentTheme: GensokyoApp.currentTheme || 'scarlet'
+                    }
+                }, '*');
+            }
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        GensokyoApp.syncNativeViewportBounds();
+    });
+})();
+

@@ -2,12 +2,16 @@
    FORMULARIO DE LOGIN Y REGISTRO ESTILO TOUHOU (CON OJOS DE YUKARI EN REGISTRO)
    ========================================================================== */
 
-.th-form-group {
+.th-form-group,
+.th-input-group {
     margin-bottom: 16px;
     text-align: left;
+    width: 100%;
+    box-sizing: border-box;
 }
 
-.th-form-label {
+.th-form-label,
+.th-label {
     display: block;
     font-family: var(--font-heading);
     font-size: 0.85rem;
@@ -18,8 +22,10 @@
     letter-spacing: 0.5px;
 }
 
-.th-form-input {
+.th-form-input,
+.th-input {
     width: 100%;
+    box-sizing: border-box;
     background: var(--th-bg-main);
     border: 1.5px solid var(--th-border-warm);
     border-radius: 8px;
@@ -31,7 +37,8 @@
     transition: all 0.2s ease;
 }
 
-.th-form-input:focus {
+.th-form-input:focus,
+.th-input:focus {
     border-color: var(--th-crimson);
     box-shadow: 0 0 8px rgba(166, 27, 50, 0.2);
     background: var(--th-bg-card);

@@ -97,11 +97,29 @@ namespace GensokyoNetApp
 
                 shellWebView.CoreWebView2.Settings.AreHostObjectsAllowed = false;
                 shellWebView.CoreWebView2.Settings.IsWebMessageEnabled = true;
+                shellWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
 
-                string wwwrootPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
-                if (!Directory.Exists(wwwrootPath))
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string[] candidateRoots = new[]
                 {
-                    wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                    Path.Combine(baseDir, "wwwroot"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"),
+                    Path.GetFullPath(Path.Combine(baseDir, @"..\..\..\wwwroot")),
+                    Path.GetFullPath(Path.Combine(baseDir, @"..\..\..\..\GensokyoNetApp\wwwroot")),
+                    Path.GetFullPath(Path.Combine(baseDir, @"..\..\..\..")),
+                    Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), @".."))
+                };
+
+                string wwwrootPath = Path.Combine(baseDir, "wwwroot");
+                foreach (var candidate in candidateRoots)
+                {
+                    if (Directory.Exists(candidate) &&
+                        File.Exists(Path.Combine(candidate, "index.html")) &&
+                        Directory.Exists(Path.Combine(candidate, "styles")))
+                    {
+                        wwwrootPath = candidate;
+                        break;
+                    }
                 }
 
                 shellWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(

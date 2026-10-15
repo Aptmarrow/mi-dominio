@@ -1,12 +1,13 @@
 /**
  * ==========================================================================
  * js/app.site-builder.js
- * Koumakan Studio IDE - Workbench Completo
- * - Árbol jerárquico real con carpetas colapsables
- * - Menú contextual nativo (Click derecho: Nuevo archivo, Nueva carpeta, Renombrar F2, Eliminar Del)
+ * Studio IDE - Workbench Completo de GensokyoNet
+ * - Arbol jerarquico de archivos con carpetas colapsables
+ * - Menu contextual (Click derecho: Nuevo archivo, Nueva carpeta, Renombrar F2, Eliminar Del)
  * - Command Palette (Ctrl+Shift+P / F1) & Quick Open (Ctrl+P)
- * - Importación de Carpetas completas (webkitdirectory / Drag&Drop / .zip) y Exportación .zip
- * - Compilador políglota (HTML/CSS/JS, TypeScript, React JSX/TSX, Python 3, Lua, Markdown)
+ * - Menu desplegable "Proyecto" para Importar / Exportar / Comandos / Sandbox
+ * - Panel de vista previa colapsable / ocultable
+ * - Cero emojis en interfaz y mensajes
  * ==========================================================================
  */
 (function () {
@@ -24,6 +25,7 @@
         viewStates: {},
         contextTarget: { path: '', type: 'folder' },
         inlineEditMode: null, // { mode: 'new-file'|'new-folder'|'rename', parentPath, targetPath, isFolder }
+        previewVisible: true,
         globalListenersBound: false
     };
 
@@ -125,7 +127,7 @@
 
                 <header class="gx-ide-toolbar">
                     <div class="gx-ide-toolbar-group">
-                        <span class="gx-ide-brand-badge">⛩️ KOUMAKAN STUDIO</span>
+                        <span class="gx-ide-brand-badge">STUDIO</span>
                         <select id="gx-ide-domain-select" class="gx-ide-select">
                             ${domains.length
                                 ? domains.map(d => `<option value="${this.escapeHtml(d)}" ${d === IDE.currentDomain ? 'selected' : ''}>gensokyo://${this.escapeHtml(d)}</option>`).join('')
@@ -136,19 +138,49 @@
                     </div>
 
                     <div class="gx-ide-toolbar-group">
-                        <button type="button" class="gx-ide-btn" data-ide-cmd="import-folder" title="Importar carpeta de proyecto completa (Ctrl+O)">📂 Importar Carpeta</button>
-                        <button type="button" class="gx-ide-btn" data-ide-cmd="export-zip" title="Exportar proyecto como .zip">📦 Exportar ZIP</button>
-                        <button type="button" class="gx-ide-btn" data-ide-cmd="open-palette" title="Paleta de Comandos (Ctrl+Shift+P)">⌘ Comandos</button>
-                        <button type="button" class="gx-ide-btn" id="gx-ide-sandbox-btn" data-ide-cmd="toggle-sandbox">
-                            ${sandboxMode === 'secure' ? '🔒 Sandbox: Seguro' : '⚡ Sandbox: Dev'}
-                        </button>
-                        <button type="button" class="gx-ide-btn" data-ide-cmd="build-run" title="Compilar (Ctrl+S)">▶ Build (Ctrl+S)</button>
-                        <button type="button" class="gx-ide-btn gx-ide-btn-primary" data-ide-cmd="publish-remote">🚀 Publicar</button>
+                        <!-- Menu Unificado de Proyecto -->
+                        <div class="gx-ide-dropdown-wrap">
+                            <button type="button" class="gx-ide-btn" id="gx-ide-project-menu-btn" data-ide-cmd="toggle-project-menu">
+                                Proyecto &#9662;
+                            </button>
+                            <div id="gx-ide-project-dropdown" class="gx-ide-dropdown-menu hidden">
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="new-file">
+                                    <span>Nuevo Archivo</span><span class="gx-dropdown-shortcut">Alt+N</span>
+                                </button>
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="new-folder">
+                                    <span>Nueva Carpeta</span><span class="gx-dropdown-shortcut">Alt+Shift+N</span>
+                                </button>
+                                <div class="gx-dropdown-divider"></div>
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="save-project">
+                                    <span>Guardar Proyecto</span><span class="gx-dropdown-shortcut">Ctrl+S</span>
+                                </button>
+                                <div class="gx-dropdown-divider"></div>
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="import-folder">
+                                    <span>Importar Carpeta...</span>
+                                </button>
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="import-zip">
+                                    <span>Importar Archivo .ZIP...</span>
+                                </button>
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="export-zip">
+                                    <span>Exportar Proyecto (.ZIP)</span>
+                                </button>
+                                <div class="gx-dropdown-divider"></div>
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="open-palette">
+                                    <span>Paleta de Comandos</span><span class="gx-dropdown-shortcut">Ctrl+Shift+P</span>
+                                </button>
+                                <button type="button" class="gx-dropdown-item" id="gx-ide-sandbox-dropdown-btn" data-ide-cmd="toggle-sandbox">
+                                    <span>Modo Sandbox</span><span class="gx-dropdown-shortcut">${sandboxMode === 'secure' ? 'Seguro' : 'Dev'}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="button" class="gx-ide-btn" id="gx-ide-toggle-preview-btn" data-ide-cmd="toggle-preview-pane">Ocultar Preview</button>
+                        <button type="button" class="gx-ide-btn gx-ide-btn-primary" data-ide-cmd="publish-remote">Publicar</button>
                     </div>
                 </header>
 
                 <div class="gx-ide-main">
-                    <!-- EXPLORADOR JERÁRQUICO (CLICK DERECHO / ATAJOS) -->
+                    <!-- EXPLORADOR JERARQUICO -->
                     <aside class="gx-ide-sidebar">
                         <div class="gx-ide-sidebar-header">
                             <span>EXPLORADOR</span>
@@ -169,13 +201,13 @@
 
                     <div id="gx-ide-splitter" class="gx-ide-splitter"></div>
 
-                    <!-- PREVIEW POLÍGLOTA + DEVTOOLS -->
+                    <!-- PREVIEW POLIGLOTA + DEVTOOLS (OCULTABLE) -->
                     <section id="gx-ide-right-pane" class="gx-ide-right-pane">
                         <div class="gx-ide-preview-header">
                             <span class="gx-ide-preview-url">gensokyo://${this.escapeHtml(IDE.currentDomain)}</span>
                             <div class="gx-ide-toolbar-group">
-                                <button type="button" class="gx-ide-btn" style="padding:2px 8px; font-size:0.72rem;" data-ide-cmd="toggle-viewport">📱 / 🖥️</button>
-                                <button type="button" class="gx-ide-btn" style="padding:2px 8px; font-size:0.72rem;" data-ide-cmd="build-run">↻</button>
+                                <button type="button" class="gx-ide-btn" style="padding:2px 8px; font-size:0.72rem;" data-ide-cmd="toggle-viewport">Movil / PC</button>
+                                <button type="button" class="gx-ide-btn" style="padding:2px 8px; font-size:0.72rem;" data-ide-cmd="toggle-preview-pane" title="Ocultar panel de vista previa">Ocultar</button>
                             </div>
                         </div>
 
@@ -185,7 +217,7 @@
 
                         <footer id="gx-ide-console-box" class="gx-ide-console">
                             <div class="gx-ide-console-header">
-                                <span>TERMINAL / STDOUT / DEVTOOLS</span>
+                                <span>TERMINAL / DEVTOOLS</span>
                                 <div class="gx-ide-toolbar-group">
                                     <button type="button" class="gx-ide-btn" style="padding:1px 7px; font-size:0.68rem;" data-ide-cmd="clear-console">Limpiar</button>
                                     <button type="button" class="gx-ide-btn" style="padding:1px 7px; font-size:0.68rem;" data-ide-cmd="toggle-console">_</button>
@@ -196,7 +228,7 @@
                     </section>
                 </div>
 
-                <!-- MENÚ CONTEXTUAL (CLICK DERECHO) -->
+                <!-- MENU CONTEXTUAL (CLICK DERECHO) -->
                 <div id="gx-ide-context-menu" class="gx-ide-context-menu hidden">
                     <div class="gx-ctx-item" data-ctx-action="new-file"><span>Nuevo Archivo...</span><span class="gx-ctx-shortcut">Alt+N</span></div>
                     <div class="gx-ctx-item" data-ctx-action="new-folder"><span>Nueva Carpeta...</span><span class="gx-ctx-shortcut">Alt+Shift+N</span></div>
@@ -216,19 +248,14 @@
                         <div id="gx-ide-palette-list" class="gx-ide-palette-list"></div>
                     </div>
                 </div>
-
-                <footer class="gx-ide-statusbar">
-                    <div class="gx-ide-statusbar-side">
-                        <span id="gx-ide-status-sync">● VFS Jerárquico Listo</span>
-                        <span id="gx-ide-build-time">Build: 0 ms</span>
-                    </div>
-                    <div class="gx-ide-statusbar-side">
-                        <span id="gx-ide-bundle-size">0 KB</span>
-                        <span id="gx-ide-engine-label">Monaco Ready</span>
-                    </div>
-                </footer>
             </section>
         `;
+
+        if (!IDE.previewVisible) {
+            document.getElementById('gx-ide-workbench')?.classList.add('preview-hidden');
+            const toggleBtn = document.getElementById('gx-ide-toggle-preview-btn');
+            if (toggleBtn) toggleBtn.textContent = 'Mostrar Preview';
+        }
 
         this.renderVfsHierarchyUI();
         this.bindWorkbenchEvents();
@@ -237,7 +264,7 @@
     };
 
     /* ==========================================================================
-       2. ÁRBOL DE CARPETAS JERÁRQUICO + INPUT INLINE (SIN PROMPTS FALSOS)
+       2. ARBOL DE CARPETAS JERARQUICO + INPUT INLINE
        ========================================================================== */
     GensokyoApp.loadDomainIntoVfs = function (domainName) {
         const domainObj = this.userDomains[domainName];
@@ -352,10 +379,11 @@
                     const isOpen = IDE.expandedFolders.has(node.path);
                     const caret = document.createElement('span');
                     caret.className = `gx-tree-caret ${isOpen ? 'open' : ''}`;
-                    caret.textContent = '▶';
+                    caret.textContent = isOpen ? '▾' : '▸';
 
                     const icon = document.createElement('span');
-                    icon.textContent = isOpen ? '📂' : '📁';
+                    icon.className = 'gx-tree-folder-icon';
+                    icon.innerHTML = `<svg class="th-svg-icon" style="width:13px; height:13px; margin-right:4px; vertical-align:middle; color:var(--th-crimson);" viewBox="0 0 24 24"><path fill="currentColor" d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`;
 
                     const label = document.createElement('span');
                     label.textContent = node.name;
@@ -390,7 +418,7 @@
 
         renderNodes(hierarchy, 0);
 
-        // Renderizar Pestañas de Archivos Abiertos
+        // Renderizar Pestanas de Archivos Abiertos
         tabsEl.innerHTML = '';
         IDE.openTabs.forEach(filePath => {
             if (!(filePath in IDE.vfs.files)) return;
@@ -449,6 +477,7 @@
             IDE.monacoModels[filePath].dispose();
             delete IDE.monacoModels[filePath];
         }
+        delete IDE.viewStates[filePath];
     };
 
     GensokyoApp.mountMonacoEditor = async function () {
@@ -457,29 +486,39 @@
 
         try {
             const monaco = await loadMonaco();
-            host.innerHTML = '';
+            if (IDE.monacoInstance) {
+                IDE.monacoInstance.dispose();
+                IDE.monacoInstance = null;
+            }
 
-            Object.values(IDE.monacoModels).forEach(m => m && m.dispose && m.dispose());
-            IDE.monacoModels = {};
-            Object.keys(IDE.vfs.files).forEach(p => this.syncMonacoModelForFile(p));
+            const model = this.syncMonacoModelForFile(IDE.activeFile);
 
             IDE.monacoInstance = monaco.editor.create(host, {
-                model: IDE.monacoModels[IDE.activeFile],
+                model,
                 theme: activeMonacoTheme(),
+                fontSize: 13,
+                fontFamily: "'Consolas', 'Courier New', monospace",
                 automaticLayout: true,
-                fontSize: 13.5,
-                fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
+                tabSize: 2,
                 minimap: { enabled: true, scale: 0.75 },
                 scrollBeyondLastLine: false,
                 smoothScrolling: true,
                 bracketPairColorization: { enabled: true }
             });
 
+            let livePreviewDebounce = null;
+            const triggerLiveAutoRun = () => {
+                if (livePreviewDebounce) clearTimeout(livePreviewDebounce);
+                livePreviewDebounce = setTimeout(() => {
+                    this.compileAndRunPreview(false);
+                }, 250);
+            };
+
             IDE.monacoInstance.onDidChangeModelContent(() => {
                 if (!IDE.activeFile) return;
                 IDE.vfs.files[IDE.activeFile] = IDE.monacoInstance.getValue();
                 IDE.dirtyFiles.add(IDE.activeFile);
-                this.renderVfsHierarchyUI();
+                triggerLiveAutoRun();
             });
 
             IDE.monacoInstance.onDidChangeCursorPosition((e) => {
@@ -488,6 +527,7 @@
             });
 
             IDE.monacoInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+                if (livePreviewDebounce) clearTimeout(livePreviewDebounce);
                 this.compileAndRunPreview(true);
             });
             IDE.monacoInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP, () => {
@@ -500,10 +540,15 @@
             host.innerHTML = `<textarea id="gx-ide-fallback-textarea" style="width:100%;height:100%;border:none;padding:14px;font-family:monospace;background:var(--th-bg-main);color:var(--th-text-main);outline:none;"></textarea>`;
             const area = document.getElementById('gx-ide-fallback-textarea');
             if (area) {
+                let areaDebounce = null;
                 area.value = IDE.vfs.files[IDE.activeFile] || '';
                 area.addEventListener('input', () => {
                     IDE.vfs.files[IDE.activeFile] = area.value;
                     IDE.dirtyFiles.add(IDE.activeFile);
+                    if (areaDebounce) clearTimeout(areaDebounce);
+                    areaDebounce = setTimeout(() => {
+                        this.compileAndRunPreview(false);
+                    }, 250);
                 });
             }
         }
@@ -519,7 +564,7 @@
         IDE.selectedNode = { path: filePath, type: 'file' };
         if (!IDE.openTabs.includes(filePath)) IDE.openTabs.push(filePath);
 
-        // Expandir automáticamente las carpetas padre del archivo abierto
+        // Expandir automaticamente las carpetas padre del archivo abierto
         const parentDir = GensokyoVFS.dirname(filePath);
         if (parentDir) {
             let acc = '';
@@ -545,7 +590,7 @@
     };
 
     /* ==========================================================================
-       4. COMPILACIÓN POLÍGLOTA Y PREVIEW UNIVERSAL
+       4. COMPILACION Y PREVIEW
        ========================================================================== */
     GensokyoApp.compileAndRunPreview = function (notify = true) {
         const t0 = performance.now();
@@ -590,28 +635,59 @@
             iframe.srcdoc = bundledHtml;
         }
 
-        const kb = (new Blob([bundledHtml]).size / 1024).toFixed(2);
-        const buildEl = document.getElementById('gx-ide-build-time');
-        const sizeEl = document.getElementById('gx-ide-bundle-size');
-        if (buildEl) buildEl.textContent = `Build: ${elapsed} ms`;
-        if (sizeEl) sizeEl.textContent = `${kb} KB`;
-
         if (notify && this.showToastNotification) {
             this.showToastNotification(`${tech.label} compilado en ${elapsed} ms`, 'success');
         }
     };
 
+    GensokyoApp.togglePreviewPane = function (forceState = null) {
+        const workbench = document.getElementById('gx-ide-workbench');
+        const toggleBtn = document.getElementById('gx-ide-toggle-preview-btn');
+        const rightPane = document.getElementById('gx-ide-right-pane');
+        const splitter = document.getElementById('gx-ide-splitter');
+        if (!workbench) return;
+
+        const isCurrentlyHidden = workbench.classList.contains('preview-hidden') || (rightPane && rightPane.style.display === 'none');
+        const nextHidden = forceState !== null ? !forceState : !isCurrentlyHidden;
+
+        if (nextHidden) {
+            workbench.classList.add('preview-hidden');
+            if (rightPane) rightPane.style.setProperty('display', 'none', 'important');
+            if (splitter) splitter.style.setProperty('display', 'none', 'important');
+            IDE.previewVisible = false;
+            if (toggleBtn) toggleBtn.textContent = 'Mostrar Preview';
+        } else {
+            workbench.classList.remove('preview-hidden');
+            if (rightPane) {
+                rightPane.style.removeProperty('display');
+                rightPane.style.display = 'flex';
+            }
+            if (splitter) {
+                splitter.style.removeProperty('display');
+                splitter.style.display = 'block';
+            }
+            IDE.previewVisible = true;
+            if (toggleBtn) toggleBtn.textContent = 'Ocultar Preview';
+        }
+
+        if (IDE.monacoInstance) {
+            setTimeout(() => {
+                IDE.monacoInstance.layout();
+            }, 50);
+        }
+    };
+
     /* ==========================================================================
-       5. MENÚ CONTEXTUAL (CLICK DERECHO), COMMAND PALETTE Y ATAJOS REALES
+       5. MENU CONTEXTUAL, COMMAND PALETTE Y EVENTOS
        ========================================================================== */
     GensokyoApp.triggerVfsOperation = function (action) {
-        const target = IDE.contextTarget.path
+        const target = (IDE.contextTarget && IDE.contextTarget.path)
             ? IDE.contextTarget
-            : IDE.selectedNode;
+            : (IDE.selectedNode || { path: '', type: 'folder' });
 
         const parentFolder = target.type === 'folder'
-            ? target.path
-            : GensokyoVFS.dirname(target.path);
+            ? (target.path || '')
+            : GensokyoVFS.dirname(target.path || '');
 
         if (action === 'new-file' || action === 'new-folder') {
             if (parentFolder) IDE.expandedFolders.add(parentFolder);
@@ -648,31 +724,29 @@
             a.href = url;
             a.download = `${IDE.currentDomain || 'gensokyo-project'}.zip`;
             a.click();
-            URL.revokeObjectURL(url);
-            if (this.showToastNotification) {
-                this.showToastNotification('Proyecto exportado como .ZIP con estructura de carpetas', 'success');
-            }
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
         }
     };
 
-    GensokyoApp.openCommandPalette = function (mode = 'commands') {
+    GensokyoApp.openCommandPalette = function (initialMode = 'commands') {
         const overlay = document.getElementById('gx-ide-palette-overlay');
         const input = document.getElementById('gx-ide-palette-input');
         const list = document.getElementById('gx-ide-palette-list');
         if (!overlay || !input || !list) return;
 
         overlay.classList.remove('hidden');
-        input.value = mode === 'commands' ? '>' : '';
+        input.value = initialMode === 'commands' ? '> ' : '';
         input.focus();
 
         const commands = [
-            { label: '> Archivo: Nuevo Archivo en carpeta actual', run: () => this.triggerVfsOperation('new-file') },
-            { label: '> Carpeta: Nueva Carpeta', run: () => this.triggerVfsOperation('new-folder') },
-            { label: '> Proyecto: Importar Carpeta desde PC', run: () => this.triggerVfsOperation('import-folder') },
-            { label: '> Proyecto: Importar archivo .ZIP', run: () => this.triggerVfsOperation('import-zip') },
-            { label: '> Proyecto: Exportar como .ZIP', run: () => this.triggerVfsOperation('export-zip') },
-            { label: '> Build: Compilar y Ejecutar Vista Previa (Ctrl+S)', run: () => this.compileAndRunPreview(true) },
-            { label: '> Nube: Publicar Release en Registro Remoto', run: () => document.querySelector('[data-ide-cmd="publish-remote"]')?.click() }
+            { label: 'Compilar y Ejecutar Preview (Ctrl+S)', run: () => this.compileAndRunPreview(true) },
+            { label: 'Importar Carpeta de Proyecto (dist / public)', run: () => this.triggerVfsOperation('import-folder') },
+            { label: 'Importar Archivo .ZIP', run: () => this.triggerVfsOperation('import-zip') },
+            { label: 'Exportar Proyecto Completo (.ZIP)', run: () => this.triggerVfsOperation('export-zip') },
+            { label: 'Alternar Panel de Vista Previa', run: () => this.togglePreviewPane() },
+            { label: 'Nuevo Archivo...', run: () => this.triggerVfsOperation('new-file') },
+            { label: 'Nueva Carpeta...', run: () => this.triggerVfsOperation('new-folder') },
+            { label: 'Cambiar Modo Sandbox (Seguro / Dev)', run: () => document.querySelector('[data-ide-cmd="toggle-sandbox"]')?.click() }
         ];
 
         const renderFiltered = () => {
@@ -682,7 +756,7 @@
                 ? commands.filter(c => c.label.toLowerCase().includes(q.slice(1).trim().toLowerCase()))
                 : Object.keys(IDE.vfs.files)
                     .filter(f => f.toLowerCase().includes(q.toLowerCase()))
-                    .map(f => ({ label: `📄 ${f}`, run: () => this.switchIdeFile(f) }));
+                    .map(f => ({ label: f, run: () => this.switchIdeFile(f) }));
 
             items.forEach((item) => {
                 const row = document.createElement('div');
@@ -708,11 +782,17 @@
         const workbench = document.getElementById('gx-ide-workbench');
         const treeEl = document.getElementById('gx-ide-file-tree');
         const ctxMenu = document.getElementById('gx-ide-context-menu');
+        const projectDropdown = document.getElementById('gx-ide-project-dropdown');
         if (!workbench || !treeEl || !ctxMenu) return;
 
-        // 1. Click izquierdo en Explorador, Pestañas y Comandos
+        // 1. Click en el Workbench
         workbench.addEventListener('click', async (e) => {
             ctxMenu.classList.add('hidden');
+
+            const isDropdownToggle = e.target.closest('#gx-ide-project-menu-btn');
+            if (!isDropdownToggle && projectDropdown) {
+                projectDropdown.classList.add('hidden');
+            }
 
             const closeTabBtn = e.target.closest('[data-close-tab]');
             if (closeTabBtn) {
@@ -759,12 +839,34 @@
             if (!cmdBtn) return;
 
             const cmd = cmdBtn.dataset.ideCmd;
-            if (cmd === 'build-run') this.compileAndRunPreview(true);
-            else if (cmd === 'import-folder') this.triggerVfsOperation('import-folder');
-            else if (cmd === 'export-zip') this.triggerVfsOperation('export-zip');
-            else if (cmd === 'open-palette') this.openCommandPalette('commands');
-            else if (cmd === 'toggle-viewport') document.getElementById('gx-ide-preview-frame')?.classList.toggle('viewport-mobile');
-            else if (cmd === 'clear-console') {
+            if (cmd === 'toggle-project-menu') {
+                if (projectDropdown) projectDropdown.classList.toggle('hidden');
+            } else if (cmd === 'toggle-preview-pane') {
+                this.togglePreviewPane();
+            } else if (cmd === 'new-file') {
+                if (projectDropdown) projectDropdown.classList.add('hidden');
+                this.triggerVfsOperation('new-file');
+            } else if (cmd === 'new-folder') {
+                if (projectDropdown) projectDropdown.classList.add('hidden');
+                this.triggerVfsOperation('new-folder');
+            } else if (cmd === 'save-project' || cmd === 'build-run') {
+                if (projectDropdown) projectDropdown.classList.add('hidden');
+                this.compileAndRunPreview(true);
+            } else if (cmd === 'import-folder') {
+                if (projectDropdown) projectDropdown.classList.add('hidden');
+                this.triggerVfsOperation('import-folder');
+            } else if (cmd === 'import-zip') {
+                if (projectDropdown) projectDropdown.classList.add('hidden');
+                this.triggerVfsOperation('import-zip');
+            } else if (cmd === 'export-zip') {
+                if (projectDropdown) projectDropdown.classList.add('hidden');
+                this.triggerVfsOperation('export-zip');
+            } else if (cmd === 'open-palette') {
+                if (projectDropdown) projectDropdown.classList.add('hidden');
+                this.openCommandPalette('commands');
+            } else if (cmd === 'toggle-viewport') {
+                document.getElementById('gx-ide-preview-frame')?.classList.toggle('viewport-mobile');
+            } else if (cmd === 'clear-console') {
                 const out = document.getElementById('gx-ide-console-output');
                 if (out) out.innerHTML = '';
             } else if (cmd === 'toggle-console') {
@@ -772,7 +874,10 @@
             } else if (cmd === 'toggle-sandbox') {
                 const next = this.securityConfig.localhostSandboxMode === 'secure' ? 'dev' : 'secure';
                 this.setLocalhostSandboxMode(next);
-                cmdBtn.textContent = next === 'secure' ? '🔒 Sandbox: Seguro' : '⚡ Sandbox: Dev';
+                const dropdownBtn = document.getElementById('gx-ide-sandbox-dropdown-btn');
+                if (dropdownBtn) {
+                    dropdownBtn.innerHTML = `<span>Modo Sandbox</span><span class="gx-dropdown-shortcut">${next === 'secure' ? 'Seguro' : 'Dev'}</span>`;
+                }
                 this.compileAndRunPreview(false);
             } else if (cmd === 'publish-remote') {
                 this.compileAndRunPreview(false);
@@ -788,7 +893,17 @@
             }
         });
 
-        // 2. Click Derecho Real en el Árbol VFS
+        if (!IDE.docClickListenerBound) {
+            IDE.docClickListenerBound = true;
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.gx-ide-dropdown-wrap')) {
+                    const dd = document.getElementById('gx-ide-project-dropdown');
+                    if (dd) dd.classList.add('hidden');
+                }
+            });
+        }
+
+        // 2. Click Derecho en el Arbol VFS
         treeEl.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             const row = e.target.closest('[data-vfs-path]');
@@ -807,7 +922,7 @@
             ctxMenu.style.top = `${y}px`;
         });
 
-        // 3. Atajos de teclado nativos en el árbol (F2, Delete, Alt+N, Alt+Shift+N)
+        // 3. Atajos de teclado en el arbol (F2, Delete, Alt+N, Alt+Shift+N)
         treeEl.addEventListener('keydown', (e) => {
             if (IDE.inlineEditMode) return;
             if (e.key === 'F2') {
@@ -825,7 +940,7 @@
             }
         });
 
-        // 4. Importar Carpeta o ZIP desde inputs o Drag & Drop sobre el árbol
+        // 4. Importar Carpeta o ZIP desde inputs o Drag & Drop sobre el arbol
         const handleImportedVfs = (importedVfs) => {
             if (!importedVfs || !Object.keys(importedVfs.files).length) return;
             IDE.vfs = importedVfs;
@@ -882,10 +997,11 @@
                 dragging = false;
                 splitter.classList.remove('dragging');
                 workbench.classList.remove('is-resizing');
+                if (IDE.monacoInstance) IDE.monacoInstance.layout();
             });
         }
 
-        // 6. Listeners globales únicos (Consola + Atajos de IDE)
+        // 6. Listeners globales unicos (Consola + Atajos de IDE)
         if (!IDE.globalListenersBound) {
             IDE.globalListenersBound = true;
 

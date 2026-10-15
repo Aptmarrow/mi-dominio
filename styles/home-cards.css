@@ -339,3 +339,125 @@ body.theme-hakugyokurou .gx-viewport-wrapper {
     color: var(--th-text-sub);
 }
 
+/* ==========================================================================
+   WEBRING 88x31 & HISTORIAL STYLES
+   ========================================================================== */
+
+.gx-webring-section {
+    width: 100%;
+    max-width: 880px;
+    background: var(--th-bg-card);
+    border: 1.5px solid var(--th-border-warm);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 24px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+}
+
+.gx-webring-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--th-border-warm);
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.gx-webring-title-box {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.gx-webring-title {
+    font-family: var(--font-heading);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--th-crimson);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gx-webring-sub {
+    font-size: 0.8rem;
+    color: var(--th-text-sub);
+    font-weight: 600;
+}
+
+.gx-webring-explore-btn {
+    background: var(--th-bg-main);
+    border: 1px solid var(--th-border-warm);
+    color: var(--th-text-main);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.gx-webring-explore-btn:hover {
+    border-color: var(--th-crimson);
+    color: var(--th-crimson);
+}
+
+.gx-webring-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.gx-badge-88x31 {
+    width: 88px;
+    height: 31px;
+    min-width: 88px;
+    max-width: 88px;
+    min-height: 31px;
+    max-height: 31px;
+    box-sizing: border-box;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid var(--th-crimson);
+    background: linear-gradient(180deg, var(--th-bg-main) 0%, var(--th-bg-card) 100%);
+    color: var(--th-crimson);
+    font-family: var(--font-heading), monospace;
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    overflow: hidden;
+    padding: 2px 3px;
+    line-height: 1.1;
+    letter-spacing: 0.3px;
+    image-rendering: pixelated;
+    transition: transform 0.15s, box-shadow 0.15s;
+    user-select: none;
+}
+
+.gx-badge-88x31:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(139, 21, 43, 0.25);
+    border-color: var(--th-gold);
+    color: var(--th-text-main);
+}
+
+.gx-badge-88x31 img {
+    width: 88px;
+    height: 31px;
+    object-fit: cover;
+    image-rendering: pixelated;
+    display: block;
+}
+
+.gx-history-item:hover {
+    background: var(--th-bg-card) !important;
+    border-color: var(--th-crimson) !important;
+}
+

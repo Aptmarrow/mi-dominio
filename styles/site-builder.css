@@ -6,15 +6,90 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: calc(100vh - 118px);
+    height: 100%;
+    flex: 1 1 100%;
     background: var(--th-bg-main);
     color: var(--th-text-main);
-    border: 1.5px solid var(--th-border-warm);
-    border-radius: 10px;
+    border: none;
+    border-radius: 0;
     overflow: hidden;
     user-select: none;
     position: relative;
-    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22);
+    box-shadow: none;
+}
+
+.gx-ide-workbench.preview-hidden #gx-ide-right-pane,
+.gx-ide-workbench.preview-hidden #gx-ide-splitter {
+    display: none !important;
+}
+
+.gx-ide-workbench.preview-hidden .gx-ide-editor-pane {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+}
+
+.gx-ide-dropdown-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.gx-ide-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 240px;
+    background: var(--th-bg-card);
+    border: 1.5px solid var(--th-border-warm);
+    border-radius: 6px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+    padding: 6px 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+}
+
+.gx-ide-dropdown-menu.hidden {
+    display: none !important;
+}
+
+.gx-dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--th-text-main);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+
+.gx-dropdown-item:hover {
+    background: var(--th-crimson);
+    color: #ffffff;
+}
+
+.gx-dropdown-shortcut {
+    font-size: 0.68rem;
+    color: var(--th-text-sub);
+    margin-left: 14px;
+    font-family: monospace;
+    opacity: 0.85;
+}
+
+.gx-dropdown-item:hover .gx-dropdown-shortcut {
+    color: #ffffff;
+    opacity: 1;
+}
+
+.gx-dropdown-divider {
+    height: 1px;
+    background: var(--th-border-warm);
+    margin: 4px 0;
 }
 
 .gx-ide-toolbar {
@@ -489,17 +564,14 @@
 .gx-console-warn { color: #ffcc80; background: rgba(255, 152, 0, 0.08); }
 .gx-console-error { color: #ff8a80; background: rgba(244, 67, 54, 0.12); font-weight: 600; }
 
-.gx-ide-statusbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    height: 24px;
-    padding: 0 12px;
-    background: var(--th-crimson);
-    color: #ffffff;
-    font-size: 0.72rem;
-    font-weight: 600;
-    flex-shrink: 0;
+.gx-ide-statusbar,
+.ide-statusbar {
+    display: none !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
 }
 
-.gx-ide-statusbar-side { display: flex; align-items: center; gap: 14px; }
+.gx-ide-statusbar-side { display: none !important; }

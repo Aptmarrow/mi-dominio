@@ -1,0 +1,138 @@
+/* ==========================================================================
+   MODALES Y CAJA DE OFRENDAS DEL TEMPLO HAKUREI
+   ========================================================================== */
+
+.th-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 1;
+    transition: opacity 0.25s ease;
+}
+
+.th-modal-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.th-modal-card {
+    background: var(--th-bg-card);
+    border: 2px solid var(--th-crimson);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 540px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    animation: modalPop 0.25s ease;
+}
+
+@keyframes modalPop {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.th-modal-header {
+    background: var(--th-crimson);
+    color: #ffffff;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.th-modal-header h2 {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #ffffff;
+}
+
+.th-modal-close {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    line-height: 1;
+    opacity: 0.8;
+}
+
+.th-modal-close:hover {
+    opacity: 1;
+}
+
+.th-modal-body {
+    padding: 20px;
+}
+
+.th-donation-progress-card {
+    background: var(--th-bg-main);
+    border: 1px solid var(--th-border-warm);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 18px;
+}
+
+.th-donation-options {
+    display: flex;
+    gap: 12px;
+}
+
+.th-donate-link {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border-radius: 6px;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-decoration: none;
+    color: #ffffff;
+    font-size: 0.9rem;
+    transition: transform 0.2s ease;
+}
+
+.th-donate-link:hover {
+    transform: translateY(-2px);
+}
+
+.th-donate-link.kofi { background: #ff5e5b; }
+.th-donate-link.cafecito { background: #00b0ff; }
+
+.th-theme-options-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.th-theme-card {
+    background: var(--th-bg-main);
+    border: 2px solid var(--th-border-warm);
+    border-radius: 8px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.th-theme-card:hover, .th-theme-card.active {
+    border-color: var(--th-crimson);
+    background: var(--th-crimson-light);
+}
+
+.theme-card-title {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--th-crimson);
+    font-size: 1rem;
+    margin-bottom: 4px;
+}
+
+.theme-card-sub {
+    font-size: 0.82rem;
+    color: var(--th-text-sub);
+}

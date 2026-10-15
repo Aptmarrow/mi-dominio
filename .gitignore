@@ -14,3 +14,8 @@ Thumbs.db
 # Playwright outputs
 playwright-report/
 test-results/
+
+# .NET build artifacts & local server data
+[Bb]in/
+[Oo]bj/
+server/data/

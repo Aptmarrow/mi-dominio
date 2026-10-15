@@ -23,6 +23,28 @@ Object.assign(GensokyoApp, {
         this.currentSearchQuery = query || '';
 
         const allDomains = { ...GensokyoSeedData.domains, ...this.userDomains };
+
+        // FUSION DINAMICA CON DIRECTORIO REMOTO DE ESPINOZA.ENGINEER
+        if (Array.isArray(this._remoteDirectoryCache)) {
+            this._remoteDirectoryCache.forEach((rem) => {
+                if (rem && rem.domain && !allDomains[rem.domain]) {
+                    allDomains[rem.domain] = {
+                        title: rem.title || rem.domain,
+                        author: rem.author || 'la comunidad',
+                        snippet: `Sitio publicado en la red GensokyoNet (${rem.activeVersion || 'v1'}).`,
+                        visibility: 'public'
+                    };
+                }
+            });
+        }
+
+        if (!this._remoteDirectoryCache && typeof this.fetchRemoteDirectory === 'function') {
+            this.fetchRemoteDirectory().then((remoteDomains) => {
+                if (Array.isArray(remoteDomains) && remoteDomains.length > 0 && this.currentSearchQuery === query) {
+                    this.renderSearchResults(query, filterTab);
+                }
+            });
+        }
         const matchedWebs = [];
 
         Object.keys(allDomains).forEach((domainKey) => {
@@ -91,37 +113,17 @@ Object.assign(GensokyoApp, {
                     </div>
 
                     <div class="serp-user-profile-group">
-                        <span class="serp-icon-btn" title="Compartir">
-                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
-                        </span>
-                        <span class="serp-icon-btn" title="Aplicaciones de Gensokyo">
-                            <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm4-10v4h4V4h-4zm-4 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
-                        </span>
                         <div id="serp-header-avatar" class="serp-avatar-circle" data-action="open-passport" title="Pasaporte de Gensokyo: ${this.escapeHtml(this.passport.username)} (${this.escapeHtml(this.passport.userId)})">
                             <img src="${this.escapeHtml(safeAvatar)}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" alt="${this.escapeHtml(this.passport.username)}">
                         </div>
                     </div>
                 </div>
 
-                <!-- PESTAÑAS DE RESULTADOS SIN DATOS DINÁMICOS EN onClick -->
-                <nav class="google-serp-tab-bar">
-                    <button class="google-tab ${filterTab === 'all' ? 'active' : ''}" data-filter-tab="all">Todo</button>
-                    <button class="google-tab ${filterTab === 'videos' ? 'active' : ''}" data-filter-tab="videos">Videos</button>
-                    <button class="google-tab ${filterTab === 'images' ? 'active' : ''}" data-filter-tab="images">Imágenes</button>
-                    <button class="google-tab ${filterTab === 'news' ? 'active' : ''}" data-filter-tab="news">Noticias</button>
-                    <button class="google-tab">Más ▾</button>
-                    <div class="serp-tools-space"></div>
-                    <button class="google-tab tools-btn">Herramientas ▾</button>
-                </nav>
-
                 <div class="search-stats-banner">
-                    Aproximadamente ${activeCount} resultados (${(Math.random() * 0.2 + 0.1).toFixed(2)} segundos)
+                    Aproximadamente ${matchedWebs.length} resultados (${(Math.random() * 0.15 + 0.1).toFixed(2)} segundos)
                 </div>
 
-                ${filterTab === 'all' ? this.renderWebResultsHTML(matchedWebs) : ''}
-                ${filterTab === 'images' ? this.renderImageResultsHTML(matchedImages) : ''}
-                ${filterTab === 'videos' ? this.renderVideoResultsHTML(matchedVideos) : ''}
-                ${filterTab === 'news' ? this.renderWebResultsHTML(matchedWebs.filter((w) => w.domain.includes('news') || w.domain.includes('blog'))) : ''}
+                ${this.renderWebResultsHTML(matchedWebs)}
             </div>
         `;
 
@@ -171,13 +173,8 @@ Object.assign(GensokyoApp, {
                 return;
             }
             if (action === 'go-register') {
-                this.navigate('gensokyo://register');
-                return;
-            }
-
-            const filterTab = target.dataset.filterTab;
-            if (filterTab) {
-                this.setSearchFilterTab(filterTab);
+                const targetDomain = this.currentSearchQuery ? this.currentSearchQuery.toLowerCase().replace(/[^a-z0-9.-]/g, '') : '';
+                this.navigate(targetDomain ? `gensokyo://register?domain=${encodeURIComponent(targetDomain)}` : 'gensokyo://register');
                 return;
             }
 

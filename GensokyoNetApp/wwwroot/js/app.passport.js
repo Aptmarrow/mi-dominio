@@ -531,7 +531,7 @@ Object.assign(GensokyoApp, {
         const toast = document.createElement('div');
         toast.className = `th-toast ${type}`;
 
-        let iconHtml = '⛩️';
+        let iconHtml = '•';
         if (type === 'success') iconHtml = '✓';
         if (type === 'error') iconHtml = '✕';
 

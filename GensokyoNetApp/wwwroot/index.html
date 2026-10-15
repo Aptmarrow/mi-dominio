@@ -13,6 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="style.css?v=2.3">
+    <link rel="stylesheet" href="styles/site-builder.css?v=2.3">
 </head>
 <body class="theme-scarlet">
     <div id="gensokyo-app">
@@ -63,7 +64,7 @@
 
             <div class="gx-address-bar">
                 <span id="th-url-prefix" class="gx-protocol-lock">GENSOKYO://</span>
-                <input type="text" id="th-url-input" class="gx-url-input" placeholder="Escribe un dominio (ej: bunbunmaru.news) o busca algo..." spellcheck="false">
+                <input type="text" id="th-url-input" class="gx-url-input" placeholder="Escribe un dominio o busca algo..." spellcheck="false">
                 <button class="gx-btn-go" onclick="GensokyoApp.submitUrl()">Ir</button>
             </div>
         </nav>
@@ -80,11 +81,6 @@
                     <button id="nav-home" class="gx-side-btn active" onclick="GensokyoApp.navigate('gensokyo://home')">
                         <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
                         <span class="gx-tooltip">Inicio</span>
-                    </button>
-
-                    <button id="nav-news" class="gx-side-btn" onclick="GensokyoApp.navigate('gensokyo://bunbunmaru.news')">
-                        <svg class="th-svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
-                        <span class="gx-tooltip">Bunbunmaru News</span>
                     </button>
 
                     <button id="nav-register" class="gx-side-btn" onclick="GensokyoApp.navigate('gensokyo://register')">
@@ -125,13 +121,6 @@
                 </div>
             </main>
         </div>
-
-        <!-- BARRA DE ESTADO INFERIOR -->
-        <footer class="gx-statusbar">
-            <div><span class="status-indicator online"></span> Conectado a la Red Intranet GensokyoNet</div>
-            <div id="th-status-text">GensokyoNet • Estilo Scarlet Mist (TH06 Modo Pergamino)</div>
-            <div id="th-domain-count">Dominios Activos: 2</div>
-        </footer>
     </div>
 
     <!-- MODAL PASAPORTE DE GENSOKYO -->
@@ -207,16 +196,16 @@
                 
                 <form onsubmit="event.preventDefault(); GensokyoApp.submitRegisterForm();">
                     <div class="th-form-group">
-                        <label class="th-form-label" for="reg-username-input">Nombre de Usuario:</label>
-                        <input type="text" id="reg-username-input" class="th-form-input" placeholder="Ej: Cirno, Marisa..." required spellcheck="false">
+                        <label class="th-form-label" for="reg-username-input">Nombre de Usuario</label>
+                        <input type="text" id="reg-username-input" class="th-form-input" required spellcheck="false">
                         <div class="th-form-help">Tu apodo principal en la intranet de GensokyoNet.</div>
                     </div>
 
                     <!-- Contraseña con Toggle de Ojo de Yukari -->
                     <div class="th-form-group">
-                        <label class="th-form-label" for="reg-password-input">Contraseña Protegida:</label>
+                        <label class="th-form-label" for="reg-password-input">Contraseña</label>
                         <div class="th-input-password-wrapper">
-                            <input type="password" id="reg-password-input" class="th-form-input" placeholder="Mínimo 8 caracteres" required>
+                            <input type="password" id="reg-password-input" class="th-form-input" required>
                             <button type="button" class="yukari-eye-btn" onclick="GensokyoApp.togglePasswordVisibility('reg-password-input', this)" title="Brecha de Yukari: Ver/Ocultar Contraseña">
                                 <!-- Ojo Cerrado (Reposo) -->
                                 <svg class="yukari-eye-svg closed" viewBox="0 0 24 24">
@@ -235,9 +224,9 @@
 
                     <!-- Repetir Contraseña con Toggle de Ojo de Yukari -->
                     <div class="th-form-group">
-                        <label class="th-form-label" for="reg-confirm-password-input">Repetir Contraseña:</label>
+                        <label class="th-form-label" for="reg-confirm-password-input">Confirmar Contraseña</label>
                         <div class="th-input-password-wrapper">
-                            <input type="password" id="reg-confirm-password-input" class="th-form-input" placeholder="Reingresa tu contraseña" required>
+                            <input type="password" id="reg-confirm-password-input" class="th-form-input" required>
                             <button type="button" class="yukari-eye-btn" onclick="GensokyoApp.togglePasswordVisibility('reg-confirm-password-input', this)" title="Brecha de Yukari: Ver/Ocultar Contraseña">
                                 <!-- Ojo Cerrado (Reposo) -->
                                 <svg class="yukari-eye-svg closed" viewBox="0 0 24 24">
@@ -275,13 +264,13 @@
                 
                 <form onsubmit="event.preventDefault(); GensokyoApp.submitLoginForm();">
                     <div class="th-form-group">
-                        <label class="th-form-label" for="login-username-input">Nombre de Usuario:</label>
-                        <input type="text" id="login-username-input" class="th-form-input" placeholder="Tu usuario registrado" required spellcheck="false">
+                        <label class="th-form-label" for="login-username-input">Nombre de Usuario</label>
+                        <input type="text" id="login-username-input" class="th-form-input" required spellcheck="false">
                     </div>
 
                     <div class="th-form-group">
-                        <label class="th-form-label" for="login-password-input">Contraseña:</label>
-                        <input type="password" id="login-password-input" class="th-form-input" placeholder="Tu contraseña de 8+ caracteres" required>
+                        <label class="th-form-label" for="login-password-input">Contraseña</label>
+                        <input type="password" id="login-password-input" class="th-form-input" required>
                     </div>
 
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -344,15 +333,13 @@
                 <button class="th-modal-close" onclick="GensokyoApp.hideThemeModal()">✕</button>
             </div>
             <div class="th-modal-body" style="padding: 20px;">
-                <h3 style="font-family: var(--font-heading); font-size: 0.95rem; color: var(--th-crimson); margin-bottom: 10px; text-transform: uppercase;">Estilo Visual de Gensokyo</h3>
+                <h3 style="font-family: var(--font-heading); font-size: 0.95rem; color: var(--th-crimson); margin-bottom: 10px; text-transform: uppercase;">Estilo visual</h3>
                 <div class="th-theme-options-grid" style="margin-bottom: 24px;">
                     <div id="theme-card-scarlet" class="th-theme-card active" onclick="GensokyoApp.applyTheme('scarlet')">
-                        <div class="theme-card-title">Scarlet Mist (Touhou 6)</div>
-                        <div class="theme-card-sub">Estilo Pergamino Claro con Niebla Roja de Remilia Scarlet.</div>
+                        <div class="theme-card-title" style="margin-bottom: 0;">Scarlet Mist</div>
                     </div>
                     <div id="theme-card-hakugyokurou" class="th-theme-card" onclick="GensokyoApp.applyTheme('hakugyokurou')">
-                        <div class="theme-card-title">Hakugyokurou (Touhou 7)</div>
-                        <div class="theme-card-sub">Estilo Noche Oscura Mística con cerezos de Yuyuko.</div>
+                        <div class="theme-card-title" style="margin-bottom: 0;">Hakugyokurou</div>
                     </div>
                 </div>
 
@@ -402,6 +389,7 @@
     </script>
     <script src="seed-data.js?v=2.3"></script>
     <script src="app.js?v=2.3"></script>
+    <script src="js/app.storage.js?v=2.3"></script>
     <script src="js/app.vfs.js?v=2.3"></script>
     <script src="js/app.tech-detector.js?v=2.3"></script>
     <script src="js/app.bundler.js?v=2.3"></script>

@@ -5,56 +5,7 @@
 
 const GensokyoSeedData = {
     // Dominios Semilla Base
-    domains: {
-        "bunbunmaru.news": {
-            title: "Bunbunmaru News • 東方文々々新報",
-            author: "Aya Shameimaru (射命丸 文)",
-            category: "Noticias",
-            snippet: "El periódico de mayor tirada en Gensokyo. Noticias exclusivas, fotos sensacionalistas y crónicas del Templo Hakurei por Aya Shameimaru.",
-            content: `
-                <div class="bunbunmaru-hero">
-                    <h1 class="bunbunmaru-title">東方文々々新報 • Bunbunmaru News</h1>
-                    <p class="bunbunmaru-tagline">"Información a la velocidad del viento del Tengu" — Aya Shameimaru</p>
-                    <img src="assets/bunbunmaru_header.png" style="width:100%; max-height:240px; object-fit:cover; border-radius:8px; border:1px solid var(--th-crimson);" alt="Bunbunmaru Header">
-                </div>
-                <div class="bunbunmaru-grid">
-                    <article class="news-article-card">
-                        <div class="article-date">Noticia de Última Hora • Cerezos en Flor</div>
-                        <h3 class="article-title">¿Incidentes en el Templo Hakurei?</h3>
-                        <p class="article-body">Reimu Hakurei fue vista descansando mientras el viento primaveral soplaba pétalos sobre el jardín del templo. El periódico Bunbunmaru investiga posibles apariciones de yōkai.</p>
-                    </article>
-                    <article class="news-article-card">
-                        <div class="article-date">Crónica de Marisa Kirisame</div>
-                        <h3 class="article-title">Experimentos Mágicos en el Bosque</h3>
-                        <p class="article-body">Marisa reporta nuevos hallazgos sobre champiñones luminosos y encantamientos de estrellas en el Bosque de la Magia.</p>
-                    </article>
-                </div>
-            `
-        },
-        "reimu.shrine": {
-            title: "Templo Hakurei • 博麗神社",
-            author: "Reimu Hakurei (博麗 霊夢)",
-            category: "Templo",
-            snippet: "Bitácora oficial del Templo Hakurei. Servicios del templo, registro de dominios doujin y té verde diario.",
-            content: `
-                <div class="th-card">
-                    <div class="th-card-header">
-                        <h1 class="th-card-title">博麗神社 • Templo Hakurei</h1>
-                        <span class="th-badge">Oficial</span>
-                    </div>
-                    <img src="assets/gensokyo_banner.png" style="width:100%; max-height:220px; object-fit:cover; border-radius:8px; margin-bottom:16px; border:1px solid var(--th-crimson);" alt="Templo Hakurei">
-                    <p style="font-size:1.05rem; line-height:1.6; margin-bottom:16px;">
-                        Bienvenido al <strong>Templo Hakurei</strong>, el punto de encuentro principal de Gensokyo. 
-                        Reimu Hakurei mantiene la tranquilidad de la comunidad.
-                    </p>
-                    <div style="background: var(--th-bg-main); padding: 16px; border-radius: 8px; border: 1px solid var(--th-border-warm);">
-                        <h3 style="color: var(--th-crimson); margin-bottom: 8px;">Estado del Servidor: <strong>100% Estable</strong></h3>
-                        <p style="font-size: 0.9rem;">Servidor en línea para toda la comunidad doujin.</p>
-                    </div>
-                </div>
-            `
-        }
-    },
+    domains: {},
 
     // Catálogo de Búsqueda de Imágenes Doujin
     images: [

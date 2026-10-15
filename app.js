@@ -35,6 +35,10 @@ const GensokyoApp = {
     hakureiPolicy: 'ask', // 'ask' | 'auto' | 'block'
     tempAvatarDataUrl: null,
     cropZoom: 1,
+    navigationHistory: [],
+    closedTabsStack: [],
+    _remoteDirectoryCache: null,
+    _remoteDirectoryLastFetch: 0,
 
     init() {
         this.loadAccountsDB();
@@ -44,6 +48,7 @@ const GensokyoApp = {
         this.loadHakureiPolicy();
         this.loadBookmarks();
         this.loadSidebarState();
+        this.loadNavigationHistory();
 
         const urlInput = document.getElementById('th-url-input');
         if (urlInput) {
@@ -57,7 +62,17 @@ const GensokyoApp = {
 
             if (e.ctrlKey && key === 't') {
                 e.preventDefault();
-                this.createNewTab('gensokyo://home', 'Inicio');
+                if (e.shiftKey) {
+                    this.reopenLastClosedTab();
+                } else {
+                    this.createNewTab('gensokyo://home', 'Inicio');
+                }
+                return;
+            }
+
+            if (e.ctrlKey && key === 'h') {
+                e.preventDefault();
+                this.navigate('gensokyo://history');
                 return;
             }
 
@@ -91,7 +106,12 @@ const GensokyoApp = {
             }
         });
 
-        this.createNewTab('gensokyo://home', 'Inicio');
+        const restored = this.loadSavedTabs();
+        if (!restored) {
+            this.createNewTab('gensokyo://home', 'Inicio');
+        } else if (this.activeTabId) {
+            this.switchTab(this.activeTabId);
+        }
         this.updateDomainCount();
         this.updatePassportUI();
         this.syncBookmarkButtonUI();
@@ -224,6 +244,148 @@ const GensokyoApp = {
         const normalized = this.normalizeBookmarkUrl(url);
         this.createNewTab(normalized);
         this.hideBookmarksModal();
+    },
+
+    loadNavigationHistory() {
+        try {
+            const raw = localStorage.getItem('gensokyo_navigation_history');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    this.navigationHistory = parsed.filter(item => item && item.url);
+                }
+            }
+        } catch (e) {
+            this.navigationHistory = [];
+        }
+    },
+
+    saveNavigationHistory() {
+        try {
+            if (this.navigationHistory.length > 200) {
+                this.navigationHistory = this.navigationHistory.slice(0, 200);
+            }
+            localStorage.setItem('gensokyo_navigation_history', JSON.stringify(this.navigationHistory));
+        } catch (e) {}
+    },
+
+    recordNavigationHistory(url, title) {
+        if (!url || typeof url !== 'string') return;
+        const cleanUrl = url.trim();
+        if (cleanUrl.toLowerCase().startsWith('gensokyo://history')) return;
+
+        const entry = {
+            url: cleanUrl,
+            title: title || this.getTabTitleFromUrl(cleanUrl),
+            timestamp: Date.now()
+        };
+
+        if (this.navigationHistory.length > 0 && this.navigationHistory[0].url === cleanUrl) {
+            this.navigationHistory[0].timestamp = entry.timestamp;
+            if (title) this.navigationHistory[0].title = title;
+        } else {
+            this.navigationHistory.unshift(entry);
+        }
+        this.saveNavigationHistory();
+    },
+
+    clearNavigationHistory() {
+        this.navigationHistory = [];
+        try {
+            localStorage.removeItem('gensokyo_navigation_history');
+        } catch (e) {}
+        if (this.showToastNotification) {
+            this.showToastNotification('Historial de navegacion eliminado.', 'info');
+        }
+        const container = document.getElementById('gx-history-list');
+        if (container) {
+            container.innerHTML = '<div class="th-card" style="text-align:center; padding:30px;"><p>El historial esta vacio.</p></div>';
+        }
+    },
+
+    deleteNavigationHistoryItem(index) {
+        if (index >= 0 && index < this.navigationHistory.length) {
+            this.navigationHistory.splice(index, 1);
+            this.saveNavigationHistory();
+            if (typeof this.renderHistoryView === 'function') {
+                this.renderHistoryView();
+            }
+        }
+    },
+
+    loadSavedTabs() {
+        try {
+            const raw = localStorage.getItem('gensokyo_saved_tabs');
+            if (!raw) return false;
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed.tabs) && parsed.tabs.length > 0) {
+                this.tabs = parsed.tabs;
+                this.activeTabId = parsed.activeTabId || this.tabs[0].id;
+                const maxNum = Math.max(...this.tabs.map(t => {
+                    const match = String(t.id).match(/\d+/);
+                    return match ? parseInt(match[0], 10) : 0;
+                }), 0);
+                this.nextTabId = maxNum + 1;
+                return true;
+            }
+        } catch (e) {
+            console.warn('No se pudieron restaurar pestañas', e);
+        }
+        return false;
+    },
+
+    saveTabsSession() {
+        try {
+            if (!this.tabs || this.tabs.length === 0) return;
+            const payload = {
+                tabs: this.tabs.map(t => ({
+                    id: t.id,
+                    title: t.title,
+                    url: t.url,
+                    history: (t.history || [t.url]).slice(-15),
+                    historyIndex: t.historyIndex || 0
+                })),
+                activeTabId: this.activeTabId
+            };
+            localStorage.setItem('gensokyo_saved_tabs', JSON.stringify(payload));
+        } catch (e) {}
+    },
+
+    reopenLastClosedTab() {
+        if (!this.closedTabsStack || this.closedTabsStack.length === 0) {
+            if (this.showToastNotification) {
+                this.showToastNotification('No hay pestañas cerradas recientemente.', 'info');
+            }
+            return;
+        }
+        const last = this.closedTabsStack.pop();
+        if (last && last.url) {
+            this.createNewTab(last.url, last.title);
+        }
+    },
+
+    async fetchRemoteDirectory() {
+        if (!this.remoteRegistry || !this.remoteRegistry.enabled || !this.remoteRegistry.apiBase) {
+            return [];
+        }
+        const now = Date.now();
+        if (this._remoteDirectoryCache && (now - this._remoteDirectoryLastFetch < 20000)) {
+            return this._remoteDirectoryCache;
+        }
+        try {
+            const base = String(this.remoteRegistry.apiBase).replace(/\/$/, '');
+            const res = await this.fetchWithTimeout(`${base}/api/gensokyo/directory`, { method: 'GET' }, 3500);
+            if (res.ok) {
+                const data = await res.json();
+                const list = Array.isArray(data.domains) ? data.domains : [];
+                this._remoteDirectoryCache = list;
+                this._remoteDirectoryLastFetch = now;
+                return list;
+            }
+        } catch (e) {
+            // Fallback silencioso si no hay conexion
+        }
+        return this._remoteDirectoryCache || [];
     },
 
     syncBookmarkButtonUI() {
@@ -604,6 +766,8 @@ const GensokyoApp = {
             author: domainObj.author || this.passport.username,
             ownerId: domainObj.ownerId || this.passport.userId,
             visibility: domainObj.visibility || 'public',
+            badgeUrl: domainObj.badgeUrl || null,
+            badgeText: domainObj.badgeText || null,
             activeVersion,
             reason,
             publishedAt: new Date().toISOString(),
