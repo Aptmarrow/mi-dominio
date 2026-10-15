@@ -6,7 +6,6 @@
   "scripts": {
     "start": "python3 -m http.server 8080",
     "dev": "python3 -m http.server 8080",
-    "server": "node server/gensokyo-registry-api.js",
     "sync:wwwroot": "node ./scripts/sync-wwwroot.mjs",
     "test:security": "playwright test tests/security --project=firefox",
     "test:security:headed": "playwright test tests/security --project=firefox --headed",
@@ -15,8 +14,5 @@
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "http-server": "^14.1.1"
-  },
-  "dependencies": {
-    "express": "^5.3.0"
   }
 }
