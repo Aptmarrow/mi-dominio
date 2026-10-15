@@ -435,7 +435,7 @@
     };
     GensokyoApp.compileAndRunPreview = function(notify = true) {
         const t0 = performance.now();
-        const {html: bundledHtml, tech: tech} = GensokyoBundler.bundle(IDE.vfs);
+        const {html: bundledHtml, tech: tech} = GensokyoBundler.bundle(IDE.vfs, null, IDE.currentDomain);
         const elapsed = Math.max(1, Math.round(performance.now() - t0));
         const pill = document.getElementById("gx-ide-tech-pill");
         if (pill) pill.textContent = tech.label;

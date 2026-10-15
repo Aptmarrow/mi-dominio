@@ -400,7 +400,8 @@ Object.assign(GensokyoApp, {
             const versionsList = userSite.versions ? Object.keys(userSite.versions) : [ "v1" ];
             const files = versionObj && versionObj.files || userSite.files || (this.getDomainProjectFiles ? this.getDomainProjectFiles(path) : null);
             if (files && Object.keys(files).length > 0 && window.GensokyoBundler) {
-                finalHtml = GensokyoBundler.bundle(files);
+                const bundled = GensokyoBundler.bundle(files, null, path);
+                finalHtml = bundled.html || bundled;
             }
             const isEmpty = this.isHtmlContentEmpty(finalHtml);
             return {
@@ -831,12 +832,21 @@ Object.assign(GensokyoApp, {
             this.postToNativeShell({
                 action: "returnToIntranet"
             });
+            const domainName = routeInfo.domain || "";
             let finalHtml = routeInfo.htmlContent || "";
-            const localDomain = this.userDomains && this.userDomains[routeInfo.domain];
+            const localDomain = this.userDomains && this.userDomains[domainName];
             if (localDomain && (localDomain.vfs || localDomain.files) && window.GensokyoBundler) {
                 finalHtml = GensokyoBundler.bundle(localDomain.vfs || {
                     files: localDomain.files
-                }, routeInfo.subpage || null).html;
+                }, routeInfo.subpage || null, domainName).html;
+            }
+            if (finalHtml && !finalHtml.includes('id="gx-intranet-storage-bridge"') && window.GensokyoBundler && typeof window.GensokyoBundler.getStorageBridgeScript === "function") {
+                const storageScript = window.GensokyoBundler.getStorageBridgeScript(domainName);
+                if (/<head\b[^>]*>/i.test(finalHtml)) {
+                    finalHtml = finalHtml.replace(/<head\b[^>]*>/i, m => `${m}\n${storageScript}`);
+                } else {
+                    finalHtml = `<!DOCTYPE html><html><head>${storageScript}</head><body>${finalHtml}</body></html>`;
+                }
             }
             if (this._activeIntranetBlobUrl) {
                 URL.revokeObjectURL(this._activeIntranetBlobUrl);
@@ -851,6 +861,28 @@ Object.assign(GensokyoApp, {
     window.addEventListener("message", event => {
         const data = event.data;
         if (!data || typeof data !== "object") return;
+        if (data.source === "gensokyo-site-storage" && data.domain) {
+            const cleanDomain = String(data.domain).toLowerCase().trim().replace(/^gensokyo:\/\//i, "").split("/")[0];
+            if (!cleanDomain) return;
+            const storageKey = "gx_site_storage_" + cleanDomain;
+            let store = {};
+            try {
+                store = JSON.parse(localStorage.getItem(storageKey) || "{}");
+            } catch(e) {
+                store = {};
+            }
+            if (data.action === "setItem" && typeof data.key === "string") {
+                store[data.key] = String(data.value);
+            } else if (data.action === "removeItem" && typeof data.key === "string") {
+                delete store[data.key];
+            } else if (data.action === "clear") {
+                store = {};
+            }
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(store));
+            } catch(e) {}
+            return;
+        }
         if (data.source === "gensokyo-intranet-nav" && typeof data.url === "string") {
             GensokyoApp.navigate(data.url);
         } else if (data.source === "gensokyo-intranet-subpage" && typeof data.page === "string") {

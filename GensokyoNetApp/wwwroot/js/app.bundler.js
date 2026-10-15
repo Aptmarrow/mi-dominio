@@ -1,5 +1,16 @@
 (function() {
     const getConsoleBridgeScript = () => `<script>\n(function(){\n    var send = function(level, args) {\n        try {\n            var msg = Array.prototype.slice.call(args).map(function(a) {\n                if (a instanceof Error) return a.stack || a.message;\n                if (typeof a === 'object') {\n                    try { return JSON.stringify(a); } catch(e) { return String(a); }\n                }\n                return String(a);\n            }).join(' ');\n            window.parent.postMessage({\n                source: 'gensokyo-ide-console',\n                level: level,\n                message: msg,\n                timestamp: new Date().toLocaleTimeString()\n            }, '*');\n        } catch(err) {}\n    };\n    ['log','info','warn','error'].forEach(function(lvl) {\n        var orig = console[lvl];\n        console[lvl] = function() {\n            send(lvl, arguments);\n            if (orig) orig.apply(console, arguments);\n        };\n    });\n    window.addEventListener('error', function(e) {\n        send('error', ['[' + (e.filename || 'runtime') + ':' + (e.lineno || 0) + '] ' + e.message]);\n    });\n    window.addEventListener('unhandledrejection', function(e) {\n        send('error', ['[Promise Rejection] ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason))]);\n    });\n    window.__gxSendConsole = send;\n})();\n<\/script>`;
+    const getStorageBridgeScript = (domainName) => {
+        const cleanDomain = String(domainName || "").toLowerCase().trim().replace(/^gensokyo:\/\//i, "").split("/")[0];
+        let initialStoreJson = "{}";
+        if (typeof localStorage !== "undefined" && cleanDomain) {
+            try {
+                initialStoreJson = localStorage.getItem("gx_site_storage_" + cleanDomain) || "{}";
+            } catch(e) {}
+        }
+        const b64 = utf8ToBase64(initialStoreJson || "{}");
+        return `<script id="gx-intranet-storage-bridge">\n(function() {\n    const DOMAIN = ${JSON.stringify(cleanDomain)};\n    let CACHE = {};\n    try {\n        const bin = atob("${b64}");\n        const bytes = new Uint8Array(bin.length);\n        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);\n        CACHE = JSON.parse(new TextDecoder('utf-8').decode(bytes)) || {};\n    } catch(e) {\n        CACHE = {};\n    }\n    const GensokyoStorage = {\n        getItem: function(k) {\n            const v = CACHE[String(k)];\n            return v !== undefined && v !== null ? String(v) : null;\n        },\n        setItem: function(k, v) {\n            CACHE[String(k)] = String(v);\n            try {\n                window.parent.postMessage({\n                    source: 'gensokyo-site-storage',\n                    action: 'setItem',\n                    domain: DOMAIN,\n                    key: String(k),\n                    value: String(v)\n                }, '*');\n            } catch(e) {}\n        },\n        removeItem: function(k) {\n            delete CACHE[String(k)];\n            try {\n                window.parent.postMessage({\n                    source: 'gensokyo-site-storage',\n                    action: 'removeItem',\n                    domain: DOMAIN,\n                    key: String(k)\n                }, '*');\n            } catch(e) {}\n        },\n        clear: function() {\n            CACHE = {};\n            try {\n                window.parent.postMessage({\n                    source: 'gensokyo-site-storage',\n                    action: 'clear',\n                    domain: DOMAIN\n                }, '*');\n            } catch(e) {}\n        },\n        key: function(i) {\n            const keys = Object.keys(CACHE);\n            return keys[i] !== undefined ? keys[i] : null;\n        },\n        get length() {\n            return Object.keys(CACHE).length;\n        }\n    };\n    window.GensokyoStorage = GensokyoStorage;\n    try {\n        Object.defineProperty(window, 'localStorage', {\n            value: GensokyoStorage,\n            writable: true,\n            configurable: true,\n            enumerable: true\n        });\n    } catch(e1) {\n        try {\n            Object.defineProperty(Object.getPrototypeOf(window) || window, 'localStorage', {\n                get: function() { return GensokyoStorage; },\n                configurable: true\n            });\n        } catch(e2) {}\n    }\n})();\n<\/script>`;
+    };
     const rewriteCssUrls = (cssText, cssFilePath, vfs) => String(cssText || "").replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (full, quote, relUrl) => {
         if (/^(https?:|data:|blob:|#)/i.test(relUrl)) return full;
         const resolved = GensokyoVFS.resolveRelativePath(cssFilePath, relUrl);
@@ -34,8 +45,9 @@
     };
     const GensokyoBundler = {
         getConsoleBridgeScript: getConsoleBridgeScript,
-        bundle(vfs, requestedEntry = null) {
-            const files = vfs && vfs.files ? vfs.files : {};
+        getStorageBridgeScript: getStorageBridgeScript,
+        bundle(vfs, requestedEntry = null, domainContext = null) {
+            const files = (vfs && vfs.files) ? vfs.files : (vfs && typeof vfs === "object" ? vfs : {});
             const paths = Object.keys(files);
             const entryPath = requestedEntry && files[requestedEntry] ? requestedEntry : paths.find(p => p === "index.html" || p.endsWith("/index.html")) || paths.find(p => p.endsWith(".html")) || paths[0];
             if (!entryPath || !files[entryPath]) {
@@ -81,8 +93,9 @@
                 return full;
             });
             const consoleScript = getConsoleBridgeScript();
+            const storageScript = getStorageBridgeScript(domainContext || "");
             const runtimeScript = createIntranetRuntimeBootstrap(vfs, entryPath);
-            const injected = `${consoleScript}\n${runtimeScript}`;
+            const injected = `${consoleScript}\n${storageScript}\n${runtimeScript}`;
             if (/<head\b[^>]*>/i.test(html)) {
                 html = html.replace(/<head\b[^>]*>/i, m => `${m}\n${injected}`);
             } else {
@@ -102,5 +115,6 @@
     if (window.GensokyoApp) {
         window.GensokyoApp.Bundler = GensokyoBundler;
         window.GensokyoApp.getIdeConsoleBridgeScript = getConsoleBridgeScript;
+        window.GensokyoApp.getStorageBridgeScript = getStorageBridgeScript;
     }
 })();
