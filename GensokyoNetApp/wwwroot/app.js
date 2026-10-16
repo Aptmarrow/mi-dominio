@@ -876,6 +876,95 @@ const GensokyoApp = {
         }
         return true;
     },
+    async getDomainVisitsRemote(domainKey) {
+        const cleanDomain = String(domainKey || "").toLowerCase().trim().replace(/^gensokyo:\/\//i, "").split("/")[0];
+        if (!cleanDomain) return 1;
+        if (!this.remoteRegistry?.enabled || !this.remoteRegistry?.supabaseUrl) {
+            const localKey = "gx_counter_" + cleanDomain;
+            return parseInt(localStorage.getItem(localKey) || "1", 10);
+        }
+        const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, "");
+        const subject = `gx_counter:${cleanDomain}`;
+        try {
+            const res = await this.fetchWithTimeout(
+                `${base}/rest/v1/gensokyo_support_messages?subject=eq.${encodeURIComponent(subject)}&select=id,message&limit=1`,
+                { method: "GET", headers: this.getSupabaseHeaders() },
+                4000
+            );
+            if (res.ok) {
+                const rows = await res.json();
+                if (rows && rows.length > 0) {
+                    const count = parseInt(rows[0].message, 10);
+                    if (!isNaN(count)) return count;
+                }
+            }
+        } catch (err) {
+            console.warn("Fallo consultando contador de visitas remoto:", err);
+        }
+        return 1;
+    },
+    async trackDomainVisitRemote(domainKey, forceIncrement = false) {
+        const cleanDomain = String(domainKey || "").toLowerCase().trim().replace(/^gensokyo:\/\//i, "").split("/")[0];
+        if (!cleanDomain) return 1;
+
+        const sessionKey = "gx_session_visited_" + cleanDomain;
+        const alreadyVisitedThisSession = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(sessionKey) : null;
+        const shouldIncrement = forceIncrement || !alreadyVisitedThisSession;
+
+        if (!this.remoteRegistry?.enabled || !this.remoteRegistry?.supabaseUrl) {
+            const localKey = "gx_counter_" + cleanDomain;
+            let c = parseInt(localStorage.getItem(localKey) || "1", 10);
+            if (shouldIncrement) {
+                c++;
+                localStorage.setItem(localKey, String(c));
+                try { sessionStorage.setItem(sessionKey, "1"); } catch(e) {}
+            }
+            return c;
+        }
+
+        const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, "");
+        const subject = `gx_counter:${cleanDomain}`;
+        try {
+            const res = await this.fetchWithTimeout(
+                `${base}/rest/v1/gensokyo_support_messages?subject=eq.${encodeURIComponent(subject)}&select=id,message&limit=1`,
+                { method: "GET", headers: this.getSupabaseHeaders() },
+                4000
+            );
+            if (res.ok) {
+                const rows = await res.json();
+                if (rows && rows.length > 0) {
+                    const row = rows[0];
+                    let count = parseInt(row.message, 10) || 1;
+                    if (shouldIncrement) {
+                        count++;
+                        try { sessionStorage.setItem(sessionKey, "1"); } catch(e) {}
+                        fetch(`${base}/rest/v1/gensokyo_support_messages?id=eq.${row.id}`, {
+                            method: "PATCH",
+                            headers: this.getSupabaseHeaders(),
+                            body: JSON.stringify({ message: String(count) })
+                        }).catch(e => console.warn("Error actualizando contador en Supabase:", e));
+                    }
+                    return count;
+                } else {
+                    const initialCount = 1;
+                    try { sessionStorage.setItem(sessionKey, "1"); } catch(e) {}
+                    fetch(`${base}/rest/v1/gensokyo_support_messages`, {
+                        method: "POST",
+                        headers: this.getSupabaseHeaders({ Prefer: "return=minimal" }),
+                        body: JSON.stringify({
+                            sender_email: "telemetry@gensokyo.local",
+                            subject: subject,
+                            message: String(initialCount)
+                        })
+                    }).catch(e => console.warn("Error registrando nuevo contador en Supabase:", e));
+                    return initialCount;
+                }
+            }
+        } catch (err) {
+            console.warn("Fallo sincronizando visitas con Supabase:", err);
+        }
+        return 1;
+    },
     updateDomainCount() {
         const total = Object.keys(GensokyoSeedData.domains).length + Object.keys(this.userDomains).length;
         const countEl = document.getElementById("th-domain-count");

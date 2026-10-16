@@ -1007,13 +1007,24 @@ Object.assign(GensokyoApp, {
                     files: localDomain.files
                 }, routeInfo.subpage || null, domainName).html;
             }
-            if (finalHtml && !finalHtml.includes('id="gx-intranet-storage-bridge"') && window.GensokyoBundler && typeof window.GensokyoBundler.getStorageBridgeScript === "function") {
-                const storageScript = window.GensokyoBundler.getStorageBridgeScript(domainName);
-                if (/<head\b[^>]*>/i.test(finalHtml)) {
-                    finalHtml = finalHtml.replace(/<head\b[^>]*>/i, m => `${m}\n${storageScript}`);
-                } else {
-                    finalHtml = `<!DOCTYPE html><html><head>${storageScript}</head><body>${finalHtml}</body></html>`;
+            if (finalHtml && window.GensokyoBundler) {
+                let extraInjections = "";
+                if (!finalHtml.includes('id="gx-intranet-storage-bridge"') && typeof window.GensokyoBundler.getStorageBridgeScript === "function") {
+                    extraInjections += "\n" + window.GensokyoBundler.getStorageBridgeScript(domainName);
                 }
+                if (!finalHtml.includes('id="gx-intranet-counter-bridge"') && typeof window.GensokyoBundler.getCounterBridgeScript === "function") {
+                    extraInjections += "\n" + window.GensokyoBundler.getCounterBridgeScript(domainName);
+                }
+                if (extraInjections) {
+                    if (/<head\b[^>]*>/i.test(finalHtml)) {
+                        finalHtml = finalHtml.replace(/<head\b[^>]*>/i, m => `${m}${extraInjections}`);
+                    } else {
+                        finalHtml = `<!DOCTYPE html><html><head>${extraInjections}</head><body>${finalHtml}</body></html>`;
+                    }
+                }
+            }
+            if (domainName && typeof this.trackDomainVisitRemote === "function") {
+                this.trackDomainVisitRemote(domainName, false).catch(() => {});
             }
             if (this._activeIntranetBlobUrl) {
                 URL.revokeObjectURL(this._activeIntranetBlobUrl);
@@ -1079,6 +1090,43 @@ Object.assign(GensokyoApp, {
                         currentTheme: GensokyoApp.currentTheme || "scarlet"
                     }
                 }, "*");
+            }
+        } else if (data.type === "GENSOKYO_GET_DOMAIN_VISITS" || (data.source === "gensokyo-counter-sdk" && data.action === "getVisits")) {
+            const activeTab = GensokyoApp.getActiveTab ? GensokyoApp.getActiveTab() : null;
+            const currentDomain = data.domain || (activeTab ? String(activeTab.url || "").replace(/^gensokyo:\/\//i, "").split("/")[0] : "");
+            const cleanDomain = String(currentDomain || "").toLowerCase().trim();
+            const targetWin = event.source || document.getElementById("gx-intranet-site-iframe")?.contentWindow || document.getElementById("gx-ide-preview-frame")?.contentWindow;
+
+            if (typeof GensokyoApp.trackDomainVisitRemote === "function") {
+                GensokyoApp.trackDomainVisitRemote(cleanDomain, data.forceIncrement === true).then(totalVisits => {
+                    if (targetWin && typeof targetWin.postMessage === "function") {
+                        targetWin.postMessage({
+                            type: "GENSOKYO_DOMAIN_VISITS_RESPONSE",
+                            requestId: data.requestId,
+                            domain: cleanDomain,
+                            visits: totalVisits
+                        }, "*");
+                    }
+                }).catch(err => {
+                    console.warn("Fallo procesando visita remota:", err);
+                    if (targetWin && typeof targetWin.postMessage === "function") {
+                        targetWin.postMessage({
+                            type: "GENSOKYO_DOMAIN_VISITS_RESPONSE",
+                            requestId: data.requestId,
+                            domain: cleanDomain,
+                            visits: 1
+                        }, "*");
+                    }
+                });
+            } else {
+                if (targetWin && typeof targetWin.postMessage === "function") {
+                    targetWin.postMessage({
+                        type: "GENSOKYO_DOMAIN_VISITS_RESPONSE",
+                        requestId: data.requestId,
+                        domain: cleanDomain,
+                        visits: 1
+                    }, "*");
+                }
             }
         }
     });
