@@ -248,8 +248,13 @@ Object.assign(GensokyoApp, {
             btn.querySelector(".yukari-eye-svg.open")?.classList.add("hidden");
         });
         if (errBanner) {
-            errBanner.innerText = "";
-            errBanner.classList.remove("visible");
+            if (!navigator.onLine) {
+                errBanner.innerText = "Sin conexión: Se requiere conexión a Internet para registrarte en GensokyoNet.";
+                errBanner.classList.add("visible");
+            } else {
+                errBanner.innerText = "";
+                errBanner.classList.remove("visible");
+            }
         }
         modal.classList.remove("hidden");
         if (userIn) setTimeout(() => userIn.focus(), 100);
@@ -281,6 +286,12 @@ Object.assign(GensokyoApp, {
             return {
                 ok: false,
                 message: "Error: Las contraseñas no coinciden. Por favor verifica ambos campos."
+            };
+        }
+        if (!navigator.onLine) {
+            return {
+                ok: false,
+                message: "Sin conexión: Se requiere conexión a Internet para registrar un pasaporte nuevo en GensokyoNet."
             };
         }
         if (this.passport.userId === "ID#0000") {
@@ -397,11 +408,15 @@ Object.assign(GensokyoApp, {
         const passIn = document.getElementById("login-password-input");
         const errBanner = document.getElementById("login-error-banner");
         if (!modal) return;
-        if (userIn) userIn.value = "";
         if (passIn) passIn.value = "";
         if (errBanner) {
-            errBanner.innerText = "";
-            errBanner.classList.remove("visible");
+            if (!navigator.onLine) {
+                errBanner.innerText = "Sin conexión: Se requiere conexión a Internet para iniciar sesión en GensokyoNet.";
+                errBanner.classList.add("visible");
+            } else {
+                errBanner.innerText = "";
+                errBanner.classList.remove("visible");
+            }
         }
         modal.classList.remove("hidden");
         if (userIn) setTimeout(() => userIn.focus(), 100);
@@ -420,6 +435,12 @@ Object.assign(GensokyoApp, {
             return {
                 ok: false,
                 message: "Por favor ingresa usuario y contraseña."
+            };
+        }
+        if (!navigator.onLine) {
+            return {
+                ok: false,
+                message: "Sin conexión: Se requiere conexión a Internet para iniciar sesión en GensokyoNet."
             };
         }
         const passwordHash = await this.hashPassword(password);
@@ -527,58 +548,49 @@ Object.assign(GensokyoApp, {
                             message: `Bienvenido ${this.passport.username}`
                         };
                     }
+                } else {
+                    const err = await resp.json().catch(() => ({}));
+                    return {
+                        ok: false,
+                        message: err.message || "Error al autenticar con el servidor de GensokyoNet."
+                    };
                 }
             } catch (cloudErr) {
-                console.warn("Autenticación en la nube no disponible o timeout; usando fallback local:", cloudErr);
+                console.error("Fallo de red en inicio de sesión:", cloudErr);
+                return {
+                    ok: false,
+                    message: "Error de red: Se requiere conexión a Internet para iniciar sesión en GensokyoNet."
+                };
             }
-        }
-        if (!this.accountsDB[key]) {
-            return {
-                ok: false,
-                message: `El usuario "${cleanName}" no está registrado. Crea una cuenta primero.`
+        } else {
+            if (!this.accountsDB[key]) {
+                return {
+                    ok: false,
+                    message: `El usuario "${cleanName}" no está registrado localmente. Crea una cuenta primero.`
+                };
+            }
+            const acc = this.accountsDB[key];
+            const expectedHash = acc.passwordHash || (acc.password ? await this.hashPassword(acc.password) : "");
+            if (expectedHash !== passwordHash) {
+                return {
+                    ok: false,
+                    message: "Contraseña incorrecta. Inténtalo nuevamente."
+                };
+            }
+            const secureToken = this.generateSecureOAuthToken(acc.userId);
+            this.passport = {
+                isLoggedIn: true,
+                isRegistered: true,
+                userId: acc.userId,
+                username: acc.username,
+                avatarUrl: this.sanitizeAvatarUrl(acc.avatarUrl),
+                ownedDomains: acc.ownedDomains || [],
+                oauthToken: secureToken
             };
+            this.savePassportData();
+            this.onSessionChanged();
+            return { ok: true, message: `Bienvenido ${acc.username}` };
         }
-        const acc = this.accountsDB[key];
-        const expectedHash = acc.passwordHash || (acc.password ? await this.hashPassword(acc.password) : "");
-        if (expectedHash !== passwordHash) {
-            return {
-                ok: false,
-                message: "Contraseña incorrecta. Inténtalo nuevamente."
-            };
-        }
-        if (!acc.passwordHash) {
-            acc.passwordHash = passwordHash;
-            delete acc.password;
-            this.saveAccountsDB();
-        }
-        const secureToken = this.generateSecureOAuthToken(acc.userId);
-        this.passport = {
-            isLoggedIn: true,
-            isRegistered: true,
-            userId: acc.userId,
-            username: acc.username,
-            avatarUrl: this.sanitizeAvatarUrl(acc.avatarUrl),
-            ownedDomains: acc.ownedDomains || [],
-            oauthToken: secureToken
-        };
-        if (acc.preferences && typeof acc.preferences === "object") {
-            this.preferences = {
-                theme: ["scarlet", "hakugyokurou"].includes(acc.preferences.theme) ? acc.preferences.theme : this.preferences.theme,
-                language: ["es", "en", "pt"].includes(acc.preferences.language) ? acc.preferences.language : this.preferences.language,
-                hakureiPolicy: ["ask", "auto", "block"].includes(acc.preferences.hakureiPolicy) ? acc.preferences.hakureiPolicy : this.preferences.hakureiPolicy
-            };
-            this.savePreferences(false);
-            this.applyTheme(this.preferences.theme, false);
-            this.setLanguage(this.preferences.language, false);
-            this.syncHakureiPolicyUI();
-        }
-        this.savePassportData();
-        this.onSessionChanged();
-        this.showToastNotification(`¡Bienvenido de vuelta, ${acc.username}!`, "success");
-        return {
-            ok: true,
-            message: `Bienvenido ${acc.username}`
-        };
     },
     async fetchCloudPreferences(userId) {
         if (!userId || !this.remoteRegistry || !this.remoteRegistry.supabaseUrl) return;

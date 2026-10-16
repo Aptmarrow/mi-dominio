@@ -136,7 +136,140 @@
         }
         this.loadDomainIntoVfs(IDE.currentDomain);
         const sandboxMode = this.securityConfig && this.securityConfig.localhostSandboxMode || "secure";
-        viewport.innerHTML = `\n            <section class="gx-ide-workbench" id="gx-ide-workbench">\n                \x3c!-- Inputs ocultos para Importar Carpeta o ZIP --\x3e\n                <input type="file" id="gx-ide-folder-input" webkitdirectory directory multiple style="display:none;">\n                <input type="file" id="gx-ide-zip-input" accept=".zip" style="display:none;">\n\n                <header class="gx-ide-toolbar">\n                    <div class="gx-ide-toolbar-group">\n                        <span class="gx-ide-brand-badge">STUDIO</span>\n                        <select id="gx-ide-domain-select" class="gx-ide-select">\n                            ${domains.length ? domains.map(d => `<option value="${this.escapeHtml(d)}" ${d === IDE.currentDomain ? "selected" : ""}>gensokyo://${this.escapeHtml(d)}</option>`).join("") : `<option value="demo.gensokyo">gensokyo://demo.gensokyo</option>`}\n                        </select>\n                        <span id="gx-ide-tech-pill" class="gx-ide-tech-badge">HTML5 / JS</span>\n                    </div>\n\n                    <div class="gx-ide-toolbar-group">\n                        \x3c!-- Menu Unificado de Proyecto --\x3e\n                        <div class="gx-ide-dropdown-wrap">\n                            <button type="button" class="gx-ide-btn" id="gx-ide-project-menu-btn" data-ide-cmd="toggle-project-menu">\n                                Proyecto &#9662;\n                            </button>\n                            <div id="gx-ide-project-dropdown" class="gx-ide-dropdown-menu hidden">\n                                <button type="button" class="gx-dropdown-item" data-ide-cmd="new-file">\n                                    <span>Nuevo Archivo</span><span class="gx-dropdown-shortcut">Alt+N</span>\n                                </button>\n                                <button type="button" class="gx-dropdown-item" data-ide-cmd="new-folder">\n                                    <span>Nueva Carpeta</span><span class="gx-dropdown-shortcut">Alt+Shift+N</span>\n                                </button>\n                                <div class="gx-dropdown-divider"></div>\n                                <button type="button" class="gx-dropdown-item" data-ide-cmd="save-project">\n                                    <span>Guardar Proyecto</span><span class="gx-dropdown-shortcut">Ctrl+S</span>\n                                </button>\n                                <div class="gx-dropdown-divider"></div>\n                                <button type="button" class="gx-dropdown-item" data-ide-cmd="import-folder">\n                                    <span>Importar Carpeta...</span>\n                                </button>\n                                <button type="button" class="gx-dropdown-item" data-ide-cmd="import-zip">\n                                    <span>Importar Archivo .ZIP...</span>\n                                </button>\n                                <button type="button" class="gx-dropdown-item" data-ide-cmd="export-zip">\n                                    <span>Exportar Proyecto (.ZIP)</span>\n                                </button>\n                                <div class="gx-dropdown-divider"></div>\n                                <button type="button" class="gx-dropdown-item" data-ide-cmd="open-palette">\n                                    <span>Paleta de Comandos</span><span class="gx-dropdown-shortcut">Ctrl+Shift+P</span>\n                                </button>\n                                <button type="button" class="gx-dropdown-item" id="gx-ide-sandbox-dropdown-btn" data-ide-cmd="toggle-sandbox">\n                                    <span>Modo Sandbox</span><span class="gx-dropdown-shortcut">${sandboxMode === "secure" ? "Seguro" : "Dev"}</span>\n                                </button>\n                            </div>\n                        </div>\n\n                        <button type="button" class="gx-ide-btn" id="gx-ide-toggle-preview-btn" data-ide-cmd="toggle-preview-pane">Ocultar Preview</button>\n                        <button type="button" class="gx-ide-btn gx-ide-btn-primary" data-ide-cmd="publish-remote">Publicar</button>\n                    </div>\n                </header>\n\n                <div class="gx-ide-main">\n                    \x3c!-- EXPLORADOR JERARQUICO --\x3e\n                    <aside class="gx-ide-sidebar">\n                        <div class="gx-ide-sidebar-header">\n                            <span>EXPLORADOR</span>\n                            <span style="font-size:0.66rem; color:var(--th-text-sub);">Click Derecho / F2 / Del</span>\n                        </div>\n                        <div id="gx-ide-file-tree" class="gx-ide-file-tree" tabindex="0"></div>\n                    </aside>\n\n                    \x3c!-- EDITOR CENTRAL --\x3e\n                    <section class="gx-ide-editor-pane">\n                        <div id="gx-ide-file-tabs" class="gx-ide-file-tabs"></div>\n                        <div class="gx-ide-breadcrumbs">\n                            <span id="gx-ide-breadcrumb-path"></span>\n                            <span id="gx-ide-cursor-pos">Ln 1, Col 1</span>\n                        </div>\n                        <div id="gx-ide-monaco-container" class="gx-ide-monaco-host"></div>\n                    </section>\n\n                    <div id="gx-ide-splitter" class="gx-ide-splitter"></div>\n\n                    \x3c!-- PREVIEW POLIGLOTA + DEVTOOLS (OCULTABLE) --\x3e\n                    <section id="gx-ide-right-pane" class="gx-ide-right-pane">\n                        <div class="gx-ide-preview-header">\n                            <span class="gx-ide-preview-url">gensokyo://${this.escapeHtml(IDE.currentDomain)}</span>\n                            <div class="gx-ide-toolbar-group">\n                                <button type="button" class="gx-ide-btn" style="padding:2px 8px; font-size:0.72rem;" data-ide-cmd="toggle-viewport">Movil / PC</button>\n                                <button type="button" class="gx-ide-btn" style="padding:2px 8px; font-size:0.72rem;" data-ide-cmd="toggle-preview-pane" title="Ocultar panel de vista previa">Ocultar</button>\n                            </div>\n                        </div>\n\n                        <div class="gx-ide-preview-stage">\n                            <iframe id="gx-ide-preview-frame" class="gx-ide-preview-iframe" sandbox="${this.getLocalhostSandboxAttr()}"></iframe>\n                        </div>\n\n                        <footer id="gx-ide-console-box" class="gx-ide-console">\n                            <div class="gx-ide-console-header">\n                                <span>TERMINAL / DEVTOOLS</span>\n                                <div class="gx-ide-toolbar-group">\n                                    <button type="button" class="gx-ide-btn" style="padding:1px 7px; font-size:0.68rem;" data-ide-cmd="clear-console">Limpiar</button>\n                                    <button type="button" class="gx-ide-btn" style="padding:1px 7px; font-size:0.68rem;" data-ide-cmd="toggle-console">_</button>\n                                </div>\n                            </div>\n                            <div id="gx-ide-console-output" class="gx-ide-console-output"></div>\n                        </footer>\n                    </section>\n                </div>\n\n                \x3c!-- MENU CONTEXTUAL (CLICK DERECHO) --\x3e\n                <div id="gx-ide-context-menu" class="gx-ide-context-menu hidden">\n                    <div class="gx-ctx-item" data-ctx-action="new-file"><span>Nuevo Archivo...</span><span class="gx-ctx-shortcut">Alt+N</span></div>\n                    <div class="gx-ctx-item" data-ctx-action="new-folder"><span>Nueva Carpeta...</span><span class="gx-ctx-shortcut">Alt+Shift+N</span></div>\n                    <div class="gx-ctx-divider"></div>\n                    <div class="gx-ctx-item" data-ctx-action="rename"><span>Renombrar</span><span class="gx-ctx-shortcut">F2</span></div>\n                    <div class="gx-ctx-item" data-ctx-action="delete"><span>Eliminar</span><span class="gx-ctx-shortcut">Del</span></div>\n                    <div class="gx-ctx-divider"></div>\n                    <div class="gx-ctx-item" data-ctx-action="import-folder"><span>Importar Carpeta...</span><span class="gx-ctx-shortcut">Ctrl+O</span></div>\n                    <div class="gx-ctx-item" data-ctx-action="import-zip"><span>Importar archivo .ZIP...</span><span class="gx-ctx-shortcut"></span></div>\n                    <div class="gx-ctx-item" data-ctx-action="export-zip"><span>Exportar Proyecto (.ZIP)</span><span class="gx-ctx-shortcut">Ctrl+Shift+E</span></div>\n                </div>\n\n                \x3c!-- COMMAND PALETTE (CTRL+SHIFT+P / CTRL+P) --\x3e\n                <div id="gx-ide-palette-overlay" class="gx-ide-palette-overlay hidden">\n                    <div class="gx-ide-palette-box">\n                        <input type="text" id="gx-ide-palette-input" class="gx-ide-palette-input" placeholder="Escribe un comando o busca un archivo...">\n                        <div id="gx-ide-palette-list" class="gx-ide-palette-list"></div>\n                    </div>\n                </div>\n            </section>\n        `;
+        const isLoggedIn = this.passport && this.passport.isLoggedIn && this.passport.userId && this.passport.userId !== "ID#0000";
+        viewport.innerHTML = `
+            <section class="gx-ide-workbench" id="gx-ide-workbench">
+                <!-- Inputs ocultos para Importar Carpeta o ZIP -->
+                <input type="file" id="gx-ide-folder-input" webkitdirectory directory multiple style="display:none;">
+                <input type="file" id="gx-ide-zip-input" accept=".zip" style="display:none;">
+
+                <header class="gx-ide-toolbar">
+                    <div class="gx-ide-toolbar-group">
+                        <span class="gx-ide-brand-badge">STUDIO</span>
+                        <select id="gx-ide-domain-select" class="gx-ide-select">
+                            ${domains.length ? domains.map(d => `<option value="${this.escapeHtml(d)}" ${d === IDE.currentDomain ? "selected" : ""}>gensokyo://${this.escapeHtml(d)}</option>`).join("") : `<option value="demo.gensokyo">gensokyo://demo.gensokyo</option>`}
+                        </select>
+                        <button type="button" class="gx-ide-btn" id="gx-ide-sync-domains-btn" title="Sincronizar dominios desde la red GensokyoNet" style="padding: 2px 9px; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 5px; font-weight: 600;">
+                            <svg style="width:11px;height:11px;" viewBox="0 0 24 24"><path fill="currentColor" d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                            <span>Sincronizar</span>
+                        </button>
+                        ${!isLoggedIn ? `<button type="button" class="gx-ide-btn" onclick="GensokyoApp.showLoginModal()" style="padding:2px 8px; font-size:0.72rem; color:var(--th-gold); border-color:var(--th-gold);" title="Inicia sesión para editar tus dominios">🔑 Iniciar Sesión</button>` : ""}
+                        <span id="gx-ide-tech-pill" class="gx-ide-tech-badge">HTML5 / JS</span>
+                    </div>
+
+                    <div class="gx-ide-toolbar-group">
+                        <!-- Menu Unificado de Proyecto -->
+                        <div class="gx-ide-dropdown-wrap">
+                            <button type="button" class="gx-ide-btn" id="gx-ide-project-menu-btn" data-ide-cmd="toggle-project-menu">
+                                Proyecto &#9662;
+                            </button>
+                            <div id="gx-ide-project-dropdown" class="gx-ide-dropdown-menu hidden">
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="new-file">
+                                    <span>Nuevo Archivo</span><span class="gx-dropdown-shortcut">Alt+N</span>
+                                </button>
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="new-folder">
+                                    <span>Nueva Carpeta</span><span class="gx-dropdown-shortcut">Alt+Shift+N</span>
+                                </button>
+                                <div class="gx-dropdown-divider"></div>
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="save-project">
+                                    <span>Guardar Proyecto</span><span class="gx-dropdown-shortcut">Ctrl+S</span>
+                                </button>
+                                <div class="gx-dropdown-divider"></div>
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="import-folder">
+                                    <span>Importar Carpeta...</span>
+                                </button>
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="import-zip">
+                                    <span>Importar Archivo .ZIP...</span>
+                                </button>
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="export-zip">
+                                    <span>Exportar Proyecto (.ZIP)</span>
+                                </button>
+                                <div class="gx-dropdown-divider"></div>
+                                <button type="button" class="gx-dropdown-item" data-ide-cmd="open-palette">
+                                    <span>Paleta de Comandos</span><span class="gx-dropdown-shortcut">Ctrl+Shift+P</span>
+                                </button>
+                                <button type="button" class="gx-dropdown-item" id="gx-ide-sandbox-dropdown-btn" data-ide-cmd="toggle-sandbox">
+                                    <span>Modo Sandbox</span><span class="gx-dropdown-shortcut">${sandboxMode === "secure" ? "Seguro" : "Dev"}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="button" class="gx-ide-btn" id="gx-ide-toggle-preview-btn" data-ide-cmd="toggle-preview-pane">Ocultar Preview</button>
+                        <button type="button" class="gx-ide-btn gx-ide-btn-primary" data-ide-cmd="publish-remote">Publicar</button>
+                    </div>
+                </header>
+
+                <div class="gx-ide-main">
+                    <!-- EXPLORADOR JERARQUICO -->
+                    <aside class="gx-ide-sidebar">
+                        <div class="gx-ide-sidebar-header">
+                            <span>EXPLORADOR</span>
+                            <span style="font-size:0.66rem; color:var(--th-text-sub);">Click Derecho / F2 / Del</span>
+                        </div>
+                        <div id="gx-ide-file-tree" class="gx-ide-file-tree" tabindex="0"></div>
+                    </aside>
+
+                    <!-- EDITOR CENTRAL -->
+                    <section class="gx-ide-editor-pane">
+                        <div id="gx-ide-file-tabs" class="gx-ide-file-tabs"></div>
+                        <div class="gx-ide-breadcrumbs">
+                            <span id="gx-ide-breadcrumb-path"></span>
+                            <span id="gx-ide-cursor-pos">Ln 1, Col 1</span>
+                        </div>
+                        <div id="gx-ide-monaco-container" class="gx-ide-monaco-host"></div>
+                    </section>
+
+                    <div id="gx-ide-splitter" class="gx-ide-splitter"></div>
+
+                    <!-- PREVIEW POLIGLOTA + DEVTOOLS (OCULTABLE) -->
+                    <section id="gx-ide-right-pane" class="gx-ide-right-pane">
+                        <div class="gx-ide-preview-header">
+                            <span class="gx-ide-preview-url">gensokyo://${this.escapeHtml(IDE.currentDomain)}</span>
+                            <div class="gx-ide-toolbar-group">
+                                <button type="button" class="gx-ide-btn" style="padding:2px 8px; font-size:0.72rem;" data-ide-cmd="toggle-viewport">Movil / PC</button>
+                                <button type="button" class="gx-ide-btn" style="padding:2px 8px; font-size:0.72rem;" data-ide-cmd="toggle-preview-pane" title="Ocultar panel de vista previa">Ocultar</button>
+                            </div>
+                        </div>
+
+                        <div class="gx-ide-preview-stage">
+                            <iframe id="gx-ide-preview-frame" class="gx-ide-preview-iframe" sandbox="${this.getLocalhostSandboxAttr()}"></iframe>
+                        </div>
+
+                        <footer id="gx-ide-console-box" class="gx-ide-console">
+                            <div class="gx-ide-console-header">
+                                <span>TERMINAL / DEVTOOLS</span>
+                                <div class="gx-ide-toolbar-group">
+                                    <button type="button" class="gx-ide-btn" style="padding:1px 7px; font-size:0.68rem;" data-ide-cmd="clear-console">Limpiar</button>
+                                    <button type="button" class="gx-ide-btn" style="padding:1px 7px; font-size:0.68rem;" data-ide-cmd="toggle-console">_</button>
+                                </div>
+                            </div>
+                            <div id="gx-ide-console-output" class="gx-ide-console-output"></div>
+                        </footer>
+                    </section>
+                </div>
+
+                <!-- MENU CONTEXTUAL (CLICK DERECHO) -->
+                <div id="gx-ide-context-menu" class="gx-ide-context-menu hidden">
+                    <div class="gx-ctx-item" data-ctx-action="new-file"><span>Nuevo Archivo...</span><span class="gx-ctx-shortcut">Alt+N</span></div>
+                    <div class="gx-ctx-item" data-ctx-action="new-folder"><span>Nueva Carpeta...</span><span class="gx-ctx-shortcut">Alt+Shift+N</span></div>
+                    <div class="gx-ctx-divider"></div>
+                    <div class="gx-ctx-item" data-ctx-action="rename"><span>Renombrar</span><span class="gx-ctx-shortcut">F2</span></div>
+                    <div class="gx-ctx-item" data-ctx-action="delete"><span>Eliminar</span><span class="gx-ctx-shortcut">Del</span></div>
+                    <div class="gx-ctx-divider"></div>
+                    <div class="gx-ctx-item" data-ctx-action="import-folder"><span>Importar Carpeta...</span><span class="gx-ctx-shortcut">Ctrl+O</span></div>
+                    <div class="gx-ctx-item" data-ctx-action="import-zip"><span>Importar archivo .ZIP...</span><span class="gx-ctx-shortcut"></span></div>
+                    <div class="gx-ctx-item" data-ctx-action="export-zip"><span>Exportar Proyecto (.ZIP)</span><span class="gx-ctx-shortcut">Ctrl+Shift+E</span></div>
+                </div>
+
+                <!-- COMMAND PALETTE (CTRL+SHIFT+P / CTRL+P) -->
+                <div id="gx-ide-palette-overlay" class="gx-ide-palette-overlay hidden">
+                    <div class="gx-ide-palette-box">
+                        <input type="text" id="gx-ide-palette-input" class="gx-ide-palette-input" placeholder="Escribe un comando o busca un archivo...">
+                        <div id="gx-ide-palette-list" class="gx-ide-palette-list"></div>
+                    </div>
+                </div>
+            </section>
+        `;
         if (!IDE.previewVisible) {
             document.getElementById("gx-ide-workbench")?.classList.add("preview-hidden");
             const toggleBtn = document.getElementById("gx-ide-toggle-preview-btn");
@@ -830,6 +963,11 @@
         document.getElementById("gx-ide-domain-select")?.addEventListener("change", e => {
             IDE.currentDomain = e.target.value;
             this.renderSiteBuilder(IDE.currentDomain);
+        });
+        document.getElementById("gx-ide-sync-domains-btn")?.addEventListener("click", () => {
+            if (typeof this.syncUserDomainsFromCloud === "function") {
+                this.syncUserDomainsFromCloud(true);
+            }
         });
         const splitter = document.getElementById("gx-ide-splitter");
         const rightPane = document.getElementById("gx-ide-right-pane");

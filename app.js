@@ -384,11 +384,17 @@ const GensokyoApp = {
         } catch (e) {}
         return this._remoteDirectoryCache || [];
     },
-    async syncUserDomainsFromCloud() {
+    async syncUserDomainsFromCloud(manual = false) {
         if (!this.remoteRegistry?.enabled || !this.remoteRegistry.supabaseUrl) return;
         const myId = this.passport ? this.passport.userId : null;
         const myName = this.passport ? this.passport.username : null;
-        if (!this.passport || !this.passport.isRegistered || !myId || myId === "ID#0000") return;
+        if (!this.passport || !this.passport.isRegistered || !myId || myId === "ID#0000") {
+            if (manual && this.showToastNotification) {
+                this.showToastNotification("Inicia sesión con tu Pasaporte para sincronizar y editar tus dominios en el Studio.", "info");
+                this.showLoginModal();
+            }
+            return;
+        }
 
         const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, "");
         try {
@@ -416,8 +422,12 @@ const GensokyoApp = {
                             if (row.owner_id && row.owner_id !== myId) {
                                 console.warn("Sesión local no sincronizada con el Pasaporte de la nube:", myName, "Local ID:", myId, "Cloud ID:", row.owner_id);
                                 if (this.showToastNotification) {
-                                    this.showToastNotification(`Aviso: Tu sesión de "${myName}" no coincide con tu cuenta real. Cierra sesión e inicia sesión con tu contraseña para acceder a "${row.domain}".`, "warning");
+                                    this.showToastNotification(`Tu sesión actual de "${myName}" (${myId}) proviene de una prueba offline y no coincide con tu cuenta oficial (${row.owner_id}). Inicia sesión con tu contraseña oficial para sincronizar "${row.domain}".`, "warning");
                                 }
+                                this.showLoginModal();
+                                const userInput = document.getElementById("login-username-input");
+                                if (userInput) userInput.value = myName;
+                                return;
                             }
                         }
                     }
@@ -455,15 +465,30 @@ const GensokyoApp = {
                     this.saveUserDomains();
                     this.savePassportData();
                     this.updatePassportUI();
-                    const selectEl = document.getElementById("gx-ide-domain-select");
-                    if (selectEl) {
-                        const domKeys = Object.keys(this.userDomains);
-                        selectEl.innerHTML = domKeys.map(d => `<option value="${this.escapeHtml(d)}" ${d === this.builderSelectedDomain ? "selected" : ""}>gensokyo://${this.escapeHtml(d)}</option>`).join("");
+                }
+                const selectEl = document.getElementById("gx-ide-domain-select");
+                if (selectEl) {
+                    const domKeys = Object.keys(this.userDomains);
+                    const currentSelected = selectEl.value;
+                    const target = domKeys.includes(currentSelected) && currentSelected !== "demo.gensokyo" ? currentSelected : domKeys[0];
+                    selectEl.innerHTML = domKeys.map(d => `<option value="${this.escapeHtml(d)}" ${d === target ? "selected" : ""}>gensokyo://${this.escapeHtml(d)}</option>`).join("");
+                    if (typeof this.renderSiteBuilder === "function" && target && target !== "demo.gensokyo") {
+                        this.renderSiteBuilder(target);
                     }
+                }
+                if (this.showToastNotification && manual) {
+                    this.showToastNotification(`¡Dominios sincronizados con éxito desde GensokyoNet!`, "success");
+                }
+            } else if (Array.isArray(list) && list.length === 0) {
+                if (this.showToastNotification && manual) {
+                    this.showToastNotification(`No se encontraron dominios registrados para tu ID (${myId}).`, "info");
                 }
             }
         } catch (err) {
             console.warn("Fallo sincronizando dominios de usuario desde Supabase:", err);
+            if (this.showToastNotification && manual) {
+                this.showToastNotification("No se pudo conectar a GensokyoNet para sincronizar dominios.", "error");
+            }
         }
     },
     syncBookmarkButtonUI() {

@@ -434,9 +434,30 @@ Object.assign(GensokyoApp, {
         }
     },
     async resolveDomainRoute(path) {
-        const remoteRoute = this.resolveDomainRouteRemote ? await this.resolveDomainRouteRemote(path) : null;
-        if (remoteRoute) {
-            return remoteRoute;
+        if (!navigator.onLine) {
+            const localUserSite = this.userDomains ? this.userDomains[path] : null;
+            const isOwner = localUserSite && this.passport && this.passport.userId && this.passport.userId !== "ID#0000" && (localUserSite.ownerId === this.passport.userId || (Array.isArray(this.passport.ownedDomains) && this.passport.ownedDomains.includes(path)));
+            if (localUserSite && isOwner) {
+                return this.resolveDomainRouteLocal(path);
+            }
+            if (typeof GensokyoSeedData !== "undefined" && GensokyoSeedData.domains && GensokyoSeedData.domains[path]) {
+                return this.resolveDomainRouteLocal(path);
+            }
+            return {
+                isOfflineError: true,
+                domain: path
+            };
+        }
+        try {
+            const remoteRoute = this.resolveDomainRouteRemote ? await this.resolveDomainRouteRemote(path) : null;
+            if (remoteRoute) {
+                return remoteRoute;
+            }
+        } catch (netErr) {
+            return {
+                isOfflineError: true,
+                domain: path
+            };
         }
         return this.resolveDomainRouteLocal(path);
     },
@@ -502,6 +523,30 @@ Object.assign(GensokyoApp, {
             return;
         }
         if (routeInfo) {
+            if (routeInfo.isOfflineError) {
+                viewport.classList.remove("full-width");
+                if (wrapperEl) wrapperEl.classList.remove("full-bleed");
+                viewport.innerHTML = `
+                    <div class="th-card" style="max-width: 580px; margin: 40px auto; text-align: center; padding: 36px 24px; border: 2px solid var(--th-crimson); border-radius: 14px; box-shadow: 0 10px 30px rgba(166,27,50,0.12);">
+                        <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--th-crimson-light); color: var(--th-crimson); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+                            <svg class="th-svg-icon" style="width:28px;height:28px;" viewBox="0 0 24 24"><path fill="currentColor" d="M23.64 7c-.45-.34-4.93-4-11.64-4-1.5 0-2.8.2-3.95.53l3.27 3.27c.22-.03.45-.05.68-.05 4.3 0 7.42 2.15 8.35 2.87L23.64 7zM3.27 1.44L2 2.72l2.05 2.06C1.91 5.75.59 6.82.36 7l11.63 14.49.01.01.01-.01 3.9-4.86 4.32 4.32 1.27-1.27L3.27 1.44zM12 18.5L4.54 9.19c.98-.71 3.86-2.44 7.46-2.44.52 0 1.02.04 1.49.11l-2.02 2.02c-.52.27-.97.67-1.29 1.18-.32.51-.48 1.1-.48 1.7 0 .39.07.76.2 1.1l-4.7 4.7 6.8 2.84z"/></svg>
+                        </div>
+                        <div style="display: inline-block; background: var(--th-crimson); color: #ffffff; padding: 4px 14px; border-radius: 20px; font-family: var(--font-heading); font-size: 0.8rem; font-weight: 700; margin-bottom: 12px;">
+                            Barrera Hakurei Interrumpida
+                        </div>
+                        <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.6rem; margin-bottom: 10px;">Sin Conexión a GensokyoNet</h1>
+                        <p style="font-size: 0.95rem; color: var(--th-text-main); line-height: 1.6; margin-bottom: 22px;">
+                            No es posible contactar con los servidores de GensokyoNet para resolver <strong>gensokyo://${this.escapeHtml(path)}</strong>.<br>
+                            Comprueba tu conexión a Internet para acceder a las páginas de la comunidad.
+                        </p>
+                        <div style="display:flex; justify-content:center; gap:12px;">
+                            <button class="gx-btn-go" onclick="GensokyoApp.reloadPage()" style="padding: 10px 22px; font-size: 0.9rem;">Reintentar</button>
+                            <button class="gx-btn-go" style="padding: 10px 22px; font-size: 0.9rem; background: var(--th-bg-card); color: var(--th-text-main); border: 1.5px solid var(--th-border-warm);" onclick="GensokyoApp.navigate('gensokyo://home')">Ir al Inicio</button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
             if (routeInfo.isPrivateBlocked) {
                 viewport.classList.add("full-width");
                 if (wrapperEl) wrapperEl.classList.add("full-bleed");
@@ -646,6 +691,21 @@ Object.assign(GensokyoApp, {
     renderRegisterView(rawPath = "register") {
         const viewport = document.getElementById("th-viewport");
         if (!viewport) return;
+        if (!navigator.onLine) {
+            viewport.innerHTML = `
+                <div class="th-card" style="max-width: 520px; margin: 40px auto; text-align: center; padding: 36px 24px; border: 2px solid var(--th-crimson); border-radius: 12px;">
+                    <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--th-crimson-light); color: var(--th-crimson); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+                        <svg class="th-svg-icon" style="width:28px;height:28px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+                    </div>
+                    <h1 class="th-card-title" style="color: var(--th-crimson); font-size: 1.5rem; margin-bottom: 12px;">Conexión a Internet Requerida</h1>
+                    <p style="font-size: 0.95rem; color: var(--th-text-main); line-height: 1.6; margin-bottom: 22px;">
+                        Para crear cuentas o registrar y proteger dominios en la red oficial de GensokyoNet, necesitas estar conectado a Internet.
+                    </p>
+                    <button class="gx-btn-go" onclick="GensokyoApp.reloadPage()" style="padding: 10px 24px;">Reintentar Conexión</button>
+                </div>
+            `;
+            return;
+        }
         let prefilledDomain = "";
         if (rawPath && rawPath.includes("?")) {
             try {
@@ -719,6 +779,12 @@ Object.assign(GensokyoApp, {
             ok: false,
             message: "Nombre de dominio no válido."
         };
+        if (!navigator.onLine) {
+            return {
+                ok: false,
+                message: "Error de conexión: No tienes conexión a Internet. Se requiere conexión a la red GensokyoNet para reclamar o registrar un dominio."
+            };
+        }
         if (typeof GensokyoSeedData !== "undefined" && GensokyoSeedData.domains && GensokyoSeedData.domains[clean]) {
             return {
                 ok: false,
@@ -768,12 +834,10 @@ Object.assign(GensokyoApp, {
                     }
                 }
             } catch (netErr) {
-                if (!existing) {
-                    return {
-                        ok: false,
-                        message: `Se requiere conexión a Internet para verificar si "gensokyo://${clean}" está disponible en la red.`
-                    };
-                }
+                return {
+                    ok: false,
+                    message: `Error de red: Se requiere conexión a Internet para verificar y registrar "gensokyo://${clean}" en la red GensokyoNet.`
+                };
             }
         }
         if (!existing) {
