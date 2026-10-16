@@ -125,12 +125,8 @@
         const ownedKeys = (this.passport && Array.isArray(this.passport.ownedDomains)) ? this.passport.ownedDomains : [];
         const domains = Array.from(new Set([...userDomainKeys, ...ownedKeys])).filter(Boolean);
 
-        if (typeof this.syncUserDomainsFromCloud === "function") {
-            this.syncUserDomainsFromCloud().catch(() => {});
-        }
-
         if (!IDE.currentDomain || requestedDomain) {
-            IDE.currentDomain = requestedDomain || domains[0] || "demo.gensokyo";
+            IDE.currentDomain = requestedDomain || (domains.length ? domains[0] : "demo.gensokyo");
         } else if (!domains.includes(IDE.currentDomain) && domains.length > 0) {
             IDE.currentDomain = domains[0];
         }
@@ -279,6 +275,20 @@
         this.bindWorkbenchEvents();
         this.mountMonacoEditor();
         this.compileAndRunPreview(false);
+    };
+    GensokyoApp.switchStudioDomain = function(domainName) {
+        if (!domainName) return;
+        IDE.currentDomain = domainName;
+        const selectEl = document.getElementById("gx-ide-domain-select");
+        if (selectEl && selectEl.value !== domainName) {
+            selectEl.value = domainName;
+        }
+        this.loadDomainIntoVfs(domainName);
+        this.renderVfsHierarchyUI();
+        this.mountMonacoEditor();
+        this.compileAndRunPreview(false);
+        const urlPreview = document.querySelector(".gx-ide-preview-url");
+        if (urlPreview) urlPreview.textContent = `gensokyo://${this.escapeHtml(domainName)}`;
     };
     GensokyoApp.loadDomainIntoVfs = function(domainName) {
         let domainObj = this.userDomains[domainName];
@@ -961,8 +971,7 @@
             }
         });
         document.getElementById("gx-ide-domain-select")?.addEventListener("change", e => {
-            IDE.currentDomain = e.target.value;
-            this.renderSiteBuilder(IDE.currentDomain);
+            this.switchStudioDomain(e.target.value);
         });
         document.getElementById("gx-ide-sync-domains-btn")?.addEventListener("click", () => {
             if (typeof this.syncUserDomainsFromCloud === "function") {

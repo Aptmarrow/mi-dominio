@@ -386,9 +386,17 @@ const GensokyoApp = {
     },
     async syncUserDomainsFromCloud(manual = false) {
         if (!this.remoteRegistry?.enabled || !this.remoteRegistry.supabaseUrl) return;
+        if (this._isSyncingCloudDomains) return;
+        const now = Date.now();
+        if (!manual && this._lastCloudDomainsSync && (now - this._lastCloudDomainsSync < 15000)) {
+            return;
+        }
+        this._isSyncingCloudDomains = true;
+        this._lastCloudDomainsSync = now;
         const myId = this.passport ? this.passport.userId : null;
         const myName = this.passport ? this.passport.username : null;
         if (!this.passport || !this.passport.isRegistered || !myId || myId === "ID#0000") {
+            this._isSyncingCloudDomains = false;
             if (manual && this.showToastNotification) {
                 this.showToastNotification("Inicia sesión con tu Pasaporte para sincronizar y editar tus dominios en el Studio.", "info");
                 this.showLoginModal();
@@ -472,8 +480,13 @@ const GensokyoApp = {
                     const currentSelected = selectEl.value;
                     const target = domKeys.includes(currentSelected) && currentSelected !== "demo.gensokyo" ? currentSelected : domKeys[0];
                     selectEl.innerHTML = domKeys.map(d => `<option value="${this.escapeHtml(d)}" ${d === target ? "selected" : ""}>gensokyo://${this.escapeHtml(d)}</option>`).join("");
-                    if (typeof this.renderSiteBuilder === "function" && target && target !== "demo.gensokyo") {
-                        this.renderSiteBuilder(target);
+                    selectEl.value = target;
+                    if (currentSelected === "demo.gensokyo" && target && target !== "demo.gensokyo") {
+                        if (typeof this.switchStudioDomain === "function") {
+                            this.switchStudioDomain(target);
+                        } else if (typeof this.renderSiteBuilder === "function") {
+                            this.renderSiteBuilder(target);
+                        }
                     }
                 }
                 if (this.showToastNotification && manual) {
@@ -489,6 +502,8 @@ const GensokyoApp = {
             if (this.showToastNotification && manual) {
                 this.showToastNotification("No se pudo conectar a GensokyoNet para sincronizar dominios.", "error");
             }
+        } finally {
+            this._isSyncingCloudDomains = false;
         }
     },
     syncBookmarkButtonUI() {
