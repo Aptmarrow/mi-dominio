@@ -1029,31 +1029,32 @@ const GensokyoApp = {
             this.syncPreferencesToCloud();
         }
     },
-    async syncPreferencesToCloud() {
+    syncPreferencesToCloud() {
         if (!this.passport || !this.passport.isLoggedIn || !this.passport.isRegistered || !this.passport.userId) {
             return;
         }
-        if (!this.remoteRegistry || !this.remoteRegistry.supabaseUrl) {
+        if (!this.remoteRegistry || !this.remoteRegistry.supabaseUrl || this._preferencesCloudSyncDisabled) {
             return;
         }
-        const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, "");
-        try {
-            const rpcResp = await fetch(`${base}/rest/v1/rpc/update_gensokyo_preferences`, {
-                method: "POST",
-                headers: this.getSupabaseHeaders(),
-                body: JSON.stringify({
-                    p_user_id: this.passport.userId,
-                    p_preferences: this.preferences
-                })
-            });
-            if (!rpcResp.ok) {
-                await fetch(`${base}/rest/v1/gensokyo_users?user_id=eq.${encodeURIComponent(this.passport.userId)}`, {
+        if (this._syncPrefTimer) {
+            clearTimeout(this._syncPrefTimer);
+        }
+        this._syncPrefTimer = setTimeout(async () => {
+            if (!this.passport || !this.passport.userId || this._preferencesCloudSyncDisabled) return;
+            const base = this.remoteRegistry.supabaseUrl.replace(/\/$/, "");
+            try {
+                const resp = await fetch(`${base}/rest/v1/gensokyo_users?user_id=eq.${encodeURIComponent(this.passport.userId)}`, {
                     method: "PATCH",
                     headers: this.getSupabaseHeaders(),
                     body: JSON.stringify({ preferences: this.preferences })
                 });
+                if (!resp.ok && resp.status >= 400 && resp.status < 500) {
+                    this._preferencesCloudSyncDisabled = true;
+                }
+            } catch (e) {
+                // Ignore transient network errors
             }
-        } catch (e) {}
+        }, 350);
     },
     setLanguage(langCode, triggerSave = true) {
         const code = ["es", "en", "pt"].includes(langCode) ? langCode : "es";
