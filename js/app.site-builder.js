@@ -1042,6 +1042,17 @@
             });
         }
     };
+    GensokyoApp.processProjectFiles = async function(fileList, domain) {
+        const targetDomain = domain || IDE.currentDomain;
+        const vfs = await GensokyoVFS.importFromFileList(fileList);
+        if (!vfs || !this.userDomains || !this.userDomains[targetDomain]) return;
+        this.userDomains[targetDomain].vfs = vfs;
+        this.userDomains[targetDomain].files = { ...vfs.files };
+        const result = window.GensokyoBundler ? window.GensokyoBundler.bundle(vfs, "index.html", targetDomain) : "";
+        this.userDomains[targetDomain].htmlContent = typeof result === "object" && result ? result.html : result;
+        if (typeof this.saveUserDomains === "function") this.saveUserDomains();
+        this.showToastNotification(`Proyecto importado (${Object.keys(vfs.files).length} archivos)`, "success");
+    };
     const origApplyTheme = GensokyoApp.applyTheme;
     GensokyoApp.applyTheme = function(themeKey) {
         if (origApplyTheme) origApplyTheme.call(this, themeKey);

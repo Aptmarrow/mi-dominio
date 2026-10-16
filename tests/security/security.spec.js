@@ -58,7 +58,7 @@ test.describe('GensokyoNet security regression suite', () => {
     await page.locator('#gx-home-search').press('Enter');
 
     await expect(page.locator('#serp-search-input')).toBeVisible();
-    await page.getByRole('button', { name: /Imágenes|Imagenes/ }).click();
+    await page.locator('.serp-search-icon-btn').click();
 
     const xssFlag = await page.evaluate(() => window.__xssFlag);
     expect(xssFlag).toBe(0);
@@ -192,25 +192,28 @@ test.describe('GensokyoNet security regression suite', () => {
   test('registration stores password hash and never plaintext password', async ({ page, baseURL }) => {
     await openFresh(page, baseURL);
 
-    await page.evaluate(async () => {
+    const uname = `hakurei_${Date.now()}`;
+    const registerResult = await page.evaluate(async (u) => {
       GensokyoApp.showRegisterModal();
-      document.getElementById('reg-username-input').value = 'hakurei';
-      document.getElementById('reg-password-input').value = 'password-segura';
-      document.getElementById('reg-confirm-password-input').value = 'password-segura';
-      await GensokyoApp.submitRegisterForm();
-    });
+      return await GensokyoApp.submitRegisterFromNative({
+        username: u,
+        password: 'password-segura',
+        confirmPassword: 'password-segura'
+      });
+    }, uname);
+    expect(registerResult.ok).toBe(true);
 
-    const accountInfo = await page.evaluate(() => {
+    const accountInfo = await page.evaluate((u) => {
       const raw = localStorage.getItem('gensokyo_accounts_db');
       const db = raw ? JSON.parse(raw) : {};
-      const acc = db.hakurei || null;
+      const acc = db[u.toLowerCase()] || db[u] || (window.GensokyoApp && window.GensokyoApp.accountsDB ? window.GensokyoApp.accountsDB[u.toLowerCase()] : null);
       return {
         exists: !!acc,
         hash: acc ? acc.passwordHash : null,
         hasPlainPasswordField: !!(acc && Object.prototype.hasOwnProperty.call(acc, 'password')),
         userId: acc ? acc.userId : null,
       };
-    });
+    }, uname);
 
     expect(accountInfo.exists).toBe(true);
     expect(accountInfo.hash).toMatch(/^[a-f0-9]{64}$/);

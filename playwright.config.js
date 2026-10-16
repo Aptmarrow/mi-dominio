@@ -23,8 +23,8 @@ module.exports = defineConfig({
   testDir: './tests/security',
   timeout: 30_000,
   webServer: {
-    command: 'npx http-server . -p 8080 --silent',
-    url: 'http://127.0.0.1:8080',
+    command: 'npx http-server . -p 3000 --silent',
+    url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
@@ -37,7 +37,7 @@ module.exports = defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'line',
   use: {
-    baseURL: process.env.BASE_URL || 'http://127.0.0.1:8080',
+    baseURL: process.env.BASE_URL || 'http://127.0.0.1:3000',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

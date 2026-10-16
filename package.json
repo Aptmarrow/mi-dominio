@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "description": "Security checks for GensokyoNet",
   "scripts": {
-    "start": "python3 -m http.server 8080",
-    "dev": "python3 -m http.server 8080",
+    "start": "python3 -m http.server 3000",
+    "dev": "python3 -m http.server 3000",
     "sync:wwwroot": "node ./scripts/sync-wwwroot.mjs",
     "test:security": "playwright test tests/security --project=firefox",
     "test:security:headed": "playwright test tests/security --project=firefox --headed",
