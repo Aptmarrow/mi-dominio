@@ -33,11 +33,16 @@
     }
     </script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://tgtzexzgdqxjezjxrium.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com; frame-src 'self' data: blob:; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' data: blob: https://tgtzexzgdqxjezjxrium.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
     <link
         href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet">
+        rel="stylesheet" crossorigin="anonymous">
 
     <link rel="stylesheet" href="style.css?v=2.9">
     <link rel="stylesheet" href="styles/site-builder.css?v=2.9">
