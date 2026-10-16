@@ -22,7 +22,7 @@ const candidateTargets = [
     path.join(appRoot, 'output', 'wwwroot')
 ];
 
-const singleFiles = ['index.html', 'app.js', 'seed-data.js', 'style.css', 'CNAME'];
+const singleFiles = ['index.html', 'app.js', 'seed-data.js', 'style.css', 'CNAME', 'robots.txt', 'sitemap.xml'];
 const folders = ['js', 'styles', 'assets'];
 
 for (const targetDir of candidateTargets) {
